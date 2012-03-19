@@ -166,7 +166,7 @@ message_signature           :   message_operator message_payload {
 message_operator            :   IDENT { $$ = $1; }
                             ;
 
-message_payload             :                       { $$ = ""; }
+message_payload             :   LPAREN RPAREN       { $$ = ""; }
                             |   LPAREN IDENT RPAREN { $$ = $2; }
                             ;
 
