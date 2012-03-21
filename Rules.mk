@@ -3,6 +3,10 @@
 
 .PHONY: all clean clean-all
 
+$(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/%.h
+	$(CC) $(CFLAGS) -c $*.c \
+	  -o $(BUILD_DIR)/$*.o
+
 clean:
 	$(RM) $(BUILD_DIR)/*
 	$(RM) -r $(BIN_DIR)/*
