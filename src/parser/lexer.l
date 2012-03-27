@@ -33,6 +33,7 @@ mlcomment               {mlcomment_start}{mlcomment_body}*{mlcomment_end}
 "from"                  { /* printf("Token: FROM '%s'\n", yytext); */      return FROM;      }
 "global"                { /* printf("Token: GLOBAL '%s'\n", yytext); */    return GLOBAL;    }
 "import"                { /* printf("Token: IMPORT '%s'\n", yytext); */    return IMPORT;    }
+"local"                 { /* printf("Token: LOCAL '%s'\n", yytext); */     return LOCAL;     }
 "or"                    { /* printf("Token: OR '%s'\n", yytext); */        return OR;        }
 "par"                   { /* printf("Token: PAR '%s'\n", yytext); */       return PAR;       }
 "protocol"              { /* printf("Token: PROTOCOL '%s'\n", yytext); */  return PROTOCOL;  }

@@ -40,6 +40,7 @@ typedef struct {
 
 typedef struct {
   st_node_msgsig_t msgsig;
+  int nto;
   char **to;
   char *from;
 } st_node_interaction;

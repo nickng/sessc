@@ -20,6 +20,7 @@ int main(int argc, char *argv[])
 
   tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
   yyparse();
+  st_tree_print(tree);
   free(tree);
 
   if (argc > 1)
