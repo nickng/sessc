@@ -169,7 +169,6 @@ global_interaction          :   message   { $$ = $1; }
 
 message                     :   message_signature FROM role_name TO role_name SEMICOLON {
                                                                                             node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
-                                                                                            node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
                                                                                             node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
                                                                                             strcpy(node->interaction->from, $3);
 
@@ -291,7 +290,6 @@ local_interaction           :   send        { $$ = $1; }
 
 send                        :   message_signature TO role_name SEMICOLON {
                                                                             node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
-                                                                            node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
                                                                             node->interaction->from = NULL;
 
                                                                             node->interaction->nto = 1;
@@ -307,7 +305,6 @@ send                        :   message_signature TO role_name SEMICOLON {
 
 receive                     :   message_signature FROM role_name SEMICOLON {
                                                                             node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-                                                                            node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
                                                                             node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
                                                                             strcpy(node->interaction->from, $3);
 

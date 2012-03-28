@@ -184,7 +184,7 @@ void st_tree_print(const st_tree *tree);
  * @param[in] node   Node to print.
  * @param[in] indent Indentation (number of spaces).
  */
-void st_node_printr(const st_node *node, int indent);
+void st_node_print_r(const st_node *node, int indent);
 
 
 /**
@@ -194,6 +194,51 @@ void st_node_printr(const st_node *node, int indent);
  * @param[in] indent Indentation (number of spaces).
  */
 void st_node_print(const st_node *node, int indent);
+
+
+/**
+ * \brief Compare two st_nodes and print out tree (with annotated error).
+ *
+ * @param[in] node  Node to compare.
+ * @param[in] other Node to compare.
+ * @param[in] indent
+ *
+ * \returns 1 if identical, 0 otherwise.
+ */
+int st_node_compare_r_error(const st_node *node, const st_node *other, int indent);
+
+
+/**
+ * \brief Compare two st_nodes recursively.
+ *
+ * @param[in] node  Node to compare.
+ * @param[in] other Node to compare.
+ *
+ * \returns 1 if identical, 0 otherwise.
+ */
+int st_node_compare_r(const st_node *node, const st_node *other);
+
+
+/**
+ * \brief Compare two message signature.
+ *
+ * @param[in] msgsig Message signature to compare.
+ * @param[in] other  Message signature to compare.
+ *
+ * \returns 1 if identical, 0 otherwise.
+ */
+int st_node_msgsig_compare(const st_node_msgsig_t msgsig, const st_node_msgsig_t other);
+
+
+/**
+ * \brief Compare two st_nodes.
+ *
+ * @param[in] node  Node to compare.
+ * @param[in] other Node to compare.
+ *
+ * \returns 1 if identical, 0 otherwise.
+ */
+int st_node_compare(const st_node *node, const st_node *other);
 
 
 #ifdef __cplusplus
