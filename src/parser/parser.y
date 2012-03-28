@@ -8,7 +8,7 @@
 
 extern int yylex();
 extern FILE *yyin;
-extern st_tree *tree;
+//extern st_tree *tree;
 
 // Local variables.
 int i;
@@ -18,7 +18,7 @@ st_nodes *node_list;
 st_node_msgsig_t msgsig;
 st_tree_import_t import;
 
-void yyerror(const char *s)
+void yyerror(st_tree *tree, const char *s)
 {
     fprintf(stderr, "Error: %s\n", s);
 }
@@ -45,6 +45,8 @@ void yyerror(const char *s)
 #include "st_node.h"
 #include "parser_types.h"
 }
+
+%parse-param {st_tree *tree}
 
 %union {
     char *str;
