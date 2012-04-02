@@ -32,7 +32,6 @@ int connmgr_load_hosts(const char *hostsfile, char ***hosts)
   char buf[MAX_HOSTNAME_LENGTH]; // XXX: Potential buffer overflow.
 
   *hosts = malloc(sizeof(char *) * MAX_NR_OF_ROLES);
-//  char **hs = *hosts;
 
   if ((hosts_fp = fopen(hostsfile, "r")) == NULL) {
     perror("fopen(hostfile)");
@@ -97,19 +96,18 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
   *role_hosts = (host_map *)malloc(sizeof(host_map) * roles_count);
   host_map *rh = *role_hosts;
 
-  if (roles_count < hosts_count) {
+  if (roles_count > hosts_count) {
     fprintf(stderr, "Warning: Number of hosts is less than number of roles.");
   }
+
   int role_idx, host_idx;
   for (role_idx=0; role_idx<roles_count; ++role_idx) {
-    rh[role_idx].role = malloc(sizeof(char) * (strlen(roles[role_idx]) + 1));
+    rh[role_idx].role = (char *)calloc(sizeof(char), (strlen(roles[role_idx]) + 1));
     strcpy(rh[role_idx].role, roles[role_idx]);
-    rh[role_idx].role[strlen(roles[role_idx])] = 0; // NULL-termination.
 
-    host_idx = role_idx % hosts_count; 
-    rh[role_idx].host = malloc(sizeof(char) * (strlen(hosts[host_idx]) + 1));
+    host_idx = role_idx % hosts_count; // Reuse hosts from beginning
+    rh[role_idx].host = (char *)calloc(sizeof(char), (strlen(hosts[host_idx]) + 1));
     strcpy(rh[role_idx].host, hosts[host_idx]);
-    rh[role_idx].host[strlen(hosts[host_idx])] = 0; // NULL-termination.
   }
 
   unsigned port_nr;
@@ -118,28 +116,25 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
     for (role2_idx=role_idx+1; role2_idx<roles_count; ++role2_idx) {
       assert(conn_idx<nr_of_connections);
       // Set from-role.
-      cr[conn_idx].from = malloc(sizeof(char) * (strlen(roles[role_idx]) + 1));
-      strncpy(cr[conn_idx].from, roles[role_idx], strlen(roles[role_idx]));
-      cr[conn_idx].from[strlen(roles[role_idx])] = 0; // NULL-termination.
+      cr[conn_idx].from = (char *)calloc(sizeof(char), (strlen(roles[role_idx]) + 1));
+      strcpy(cr[conn_idx].from, roles[role_idx]);
 
       // Set to-role.
-      cr[conn_idx].to = malloc(sizeof(char) * (strlen(roles[role2_idx]) + 1));
-      strncpy(cr[conn_idx].to, roles[role2_idx], strlen(roles[role2_idx]));
-      cr[conn_idx].to[strlen(roles[role2_idx])] = 0; // NULL-termination.
+      cr[conn_idx].to = (char *)calloc(sizeof(char), (strlen(roles[role2_idx]) + 1));
+      strcpy(cr[conn_idx].to, roles[role2_idx]);
 
       // Lookup host from role_hosts map.
       for (map_idx=0; map_idx<roles_count; ++map_idx) {
         if (strcmp(cr[conn_idx].to, rh[map_idx].role) == 0) {
-          cr[conn_idx].host = malloc(sizeof(char) * (strlen(rh[map_idx].host) + 1));
+          cr[conn_idx].host = (char *)calloc(sizeof(char), (strlen(rh[map_idx].host) + 1));
           strcpy(cr[conn_idx].host, rh[map_idx].host);
-          cr[conn_idx].host[strlen(rh[map_idx].host)] = 0; // NULL-termination.
         }
       }
 
       // Find next unoccupied port.
       port_nr = -1;
       for (conn2_idx=0; conn2_idx<conn_idx; ++conn2_idx) {
-        if (strcmp(cr[conn2_idx].to, cr[conn_idx].to) == 0) {
+        if (strcmp(cr[conn2_idx].host, cr[conn_idx].host) == 0) {
           port_nr = cr[conn2_idx].port;
         }
       }
