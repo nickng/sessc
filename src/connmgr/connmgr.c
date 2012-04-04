@@ -66,6 +66,11 @@ int connmgr_load_roles(const char *scribble, char ***roles)
   yyin = fopen(scribble, "r");
   yyparse(tree);
   fclose(yyin);
+
+  if (!tree->info->global) {
+    fprintf(stderr, "%s:%d Warning: %s(): %s is not a global protocol.\n", __FILE__, __LINE__, __FUNCTION__, scribble);
+  }
+
   int i;
   for (i=0; i<tree->info->nrole; ++i) {
     (*roles)[i] = (char *)calloc(sizeof(char), strlen(tree->info->roles[i])+1);
