@@ -284,10 +284,9 @@ void session_dump(const session *s)
     switch (s->roles[endpoint_idx]->type) {
       case SESSION_ROLE_P2P:
         assert(s->roles[endpoint_idx]->p2p != NULL);
-        printf("Endpoint#%u { type: p2p, name: %s, uri: %p %s }\n",
+        printf("Endpoint#%u { type: p2p, name: %s, uri: %s }\n",
           endpoint_idx,
           s->roles[endpoint_idx]->p2p->name,
-          &s->roles[endpoint_idx]->p2p->uri,
           s->roles[endpoint_idx]->p2p->uri);
         break;
       case SESSION_ROLE_NAMED:
