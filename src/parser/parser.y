@@ -8,7 +8,6 @@
 
 extern int yylex();
 extern FILE *yyin;
-//extern st_tree *tree;
 
 // Local variables.
 int i;
