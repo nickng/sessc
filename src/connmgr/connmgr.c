@@ -25,7 +25,7 @@ extern FILE *yyin;
 int connmgr_load_hosts(const char *hostsfile, char ***hosts)
 {
 #ifdef __DEBUG__
-  fprintf(stderr, "Loading hosts\n");
+  fprintf(stderr, "%s(%s)\n", __FUNCTION__, hostsfile);
 #endif
   FILE *hosts_fp;
   int host_idx = 0;
@@ -34,14 +34,14 @@ int connmgr_load_hosts(const char *hostsfile, char ***hosts)
   *hosts = malloc(sizeof(char *) * MAX_NR_OF_ROLES);
 
   if ((hosts_fp = fopen(hostsfile, "r")) == NULL) {
-    perror("fopen(hostfile)");
+    perror(__FUNCTION__);
     return 0;
   }
   while (fscanf(hosts_fp, "%s", buf) != EOF && host_idx < MAX_NR_OF_ROLES) {
     (*hosts)[host_idx] = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH); // XXX
     strncpy((*hosts)[host_idx], buf, MAX_HOSTNAME_LENGTH-1);
 #ifdef __DEBUG__
-    fprintf(stderr, "hosts[%d]=%s\n", host_idx, (*hosts)[host_idx]);
+    fprintf(stderr, "%s: host#%d %s\n", __FUNCTION__, host_idx, (*hosts)[host_idx]);
 #endif
     host_idx++;
   }
@@ -58,12 +58,15 @@ int connmgr_load_hosts(const char *hostsfile, char ***hosts)
 int connmgr_load_roles(const char *scribble, char ***roles)
 {
 #ifdef __DEBUG__
-  fprintf(stderr, "Loading roles\n");
+  fprintf(stderr, "%s(%s)\n", __FUNCTION__, scribble);
 #endif
   // XXX Size of roles[] is MAX_NR_OF_ROLES
   *roles = malloc(sizeof(char *) * MAX_NR_OF_ROLES);
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
-  yyin = fopen(scribble, "r");
+  if ((yyin = fopen(scribble, "r")) == NULL) {
+    perror(__FUNCTION__);
+    return 0;
+  }
   yyparse(tree);
   fclose(yyin);
 
@@ -90,7 +93,7 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
                  int start_port)
 {
 #ifdef __DEBUG__
-  fprintf(stderr, "Generating connection configuration\n");
+  fprintf(stderr, "%s(%d roles, %d hosts)\n", __FUNCTION__, roles_count, hosts_count);
 #endif
   // Allocate memory for conn_rec.
   int nr_of_connections = (roles_count*(roles_count-1))/2; // N * (N-1) / 2
@@ -155,11 +158,14 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 /**
  * Write connection record array to file.
  */
-void connmgr_write(const char *outfile, const conn_rec conns[], int nr_of_conns,
-                                        const host_map role_hosts[], int nr_of_roles)
+void connmgr_write(const char *outfile, const conn_rec conns[], int nconns,
+                                        const host_map role_hosts[], int nroles)
 {
   FILE *out_fp;
   int conn_idx, role_idx;
+#ifdef __DEBUG__
+  fprintf(stderr, "%s(%s, %d connections, %d roles)\n", __FUNCTION__, outfile, nconns, nroles);
+#endif
 
   if (strcmp(outfile, "-") == 0) {
     out_fp = stdout;
@@ -167,15 +173,15 @@ void connmgr_write(const char *outfile, const conn_rec conns[], int nr_of_conns,
     out_fp = fopen(outfile, "w");
   }
 
-  fprintf(out_fp, "%d %d\n", nr_of_roles, nr_of_conns);
+  fprintf(out_fp, "%d %d\n", nroles, nconns);
 
-  for (role_idx=0; role_idx<nr_of_roles; ++role_idx) {
+  for (role_idx=0; role_idx<nroles; ++role_idx) {
     fprintf(out_fp, "%s %s\n",
               role_hosts[role_idx].role,
               role_hosts[role_idx].host);
   }
 
-  for (conn_idx=0; conn_idx<nr_of_conns; ++conn_idx) {
+  for (conn_idx=0; conn_idx<nconns; ++conn_idx) {
     fprintf(out_fp, "%s %s %s %d\n",
               conns[conn_idx].from,
               conns[conn_idx].to,
@@ -199,7 +205,7 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
   host_map *rh;
 
   if ((in_fp = fopen(infile, "r")) == NULL) {
-    perror("fopen(connsfile)");
+    perror(__FUNCTION__);
     return 0;
   }
 
@@ -214,7 +220,7 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
     rh[role_idx].host = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     fscanf(in_fp, "%s %s", rh[role_idx].role, rh[role_idx].host);
 #ifdef __DEBUG__
-    fprintf(stderr, "Debug/%s: #%d %s %s\n",
+    fprintf(stderr, "%s: #%d %s %s\n",
                       __FUNCTION__, role_idx, rh[role_idx].role, rh[role_idx].host);
 #endif
   }
@@ -225,7 +231,7 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
     cr[conn_idx].host = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     fscanf(in_fp, "%s %s %s %u\n", cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, &cr[conn_idx].port);
 #ifdef __DEBUG__
-    fprintf(stderr, "Debug/%s: #%d %s->%s %s:%u\n",
+    fprintf(stderr, "%s: #%d %s->%s %s:%u\n",
                       __FUNCTION__, conn_idx, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, cr[conn_idx].port);
 #endif
   }
