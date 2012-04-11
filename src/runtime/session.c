@@ -177,9 +177,13 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 
     for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for matching connection parameter
 
-      if (strcmp(conns[conn_idx].from, sess->name) == 0) { // As a client.
+      if (strcmp(conns[conn_idx].to, sess->roles[role_idx]->p2p->name) == 0) { // As a client.
         assert(strlen(conns[conn_idx].host) < 255 && conns[conn_idx].port < 65536);
-        sprintf(sess->roles[role_idx]->p2p->uri, "tcp://%s:%u", conns[conn_idx].host, conns[conn_idx].port);
+        if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
+          sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
+        } else {
+          sprintf(sess->roles[role_idx]->p2p->uri, "tcp://%s:%u", conns[conn_idx].host, conns[conn_idx].port);
+        }
 #ifdef __DEBUG__
         fprintf(stderr, "Connection (as client) %s -> %s is %s\n",
             conns[conn_idx].from,
@@ -192,9 +196,13 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
         break;
       }
 
-      if (strcmp(conns[conn_idx].to, sess->name) == 0) { // As a server.
+      if (strcmp(conns[conn_idx].from, sess->roles[role_idx]->p2p->name) == 0) { // As a server.
         assert(conns[conn_idx].port < 65536);
-        sprintf(sess->roles[role_idx]->p2p->uri, "tcp://*:%u",conns[conn_idx].port);
+        if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
+          sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
+        } else {
+          sprintf(sess->roles[role_idx]->p2p->uri, "tcp://*:%u",conns[conn_idx].port);
+        }
   #ifdef __DEBUG__
         fprintf(stderr, "Connection (as server) %s -> %s is %s\n",
             conns[conn_idx].from,
@@ -276,9 +284,10 @@ void session_dump(const session *s)
     switch (s->roles[endpoint_idx]->type) {
       case SESSION_ROLE_P2P:
         assert(s->roles[endpoint_idx]->p2p != NULL);
-        printf("Endpoint#%u { type: p2p, name: %s, uri: %s }\n",
+        printf("Endpoint#%u { type: p2p, name: %s, uri: %p %s }\n",
           endpoint_idx,
           s->roles[endpoint_idx]->p2p->name,
+          &s->roles[endpoint_idx]->p2p->uri,
           s->roles[endpoint_idx]->p2p->uri);
         break;
       case SESSION_ROLE_NAMED:

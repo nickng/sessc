@@ -138,6 +138,7 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 
   unsigned port_nr;
   int conn_idx, conn2_idx, map_idx, role2_idx;
+  char *from_host;
   for (role_idx=0, conn_idx=0; role_idx<roles_count; ++role_idx) {
     for (role2_idx=role_idx+1; role2_idx<roles_count; ++role2_idx) {
       assert(conn_idx<nr_of_connections);
@@ -151,12 +152,21 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 
       // Lookup host from role_hosts map.
       for (map_idx=0; map_idx<roles_count; ++map_idx) {
+        if (strcmp(cr[conn_idx].from, rh[map_idx].role) == 0) {
+          from_host = (char *)calloc(sizeof(char), (strlen(rh[map_idx].host) + 1));
+          strcpy(from_host, rh[map_idx].host);
+        }
         if (strcmp(cr[conn_idx].to, rh[map_idx].role) == 0) {
           cr[conn_idx].host = (char *)calloc(sizeof(char), (strlen(rh[map_idx].host) + 1));
           strcpy(cr[conn_idx].host, rh[map_idx].host);
         }
       }
 
+
+      if (strcmp(from_host, cr[conn_idx].host) == 0) {
+        cr[conn_idx].host = (char *)realloc(cr[conn_idx].host, sizeof(char) * (strlen(cr[conn_idx].host) + 4));
+        sprintf(cr[conn_idx].host, "ipc:%s", from_host);
+      }
       // Find next unoccupied port.
       port_nr = -1;
       for (conn2_idx=0; conn2_idx<conn_idx; ++conn2_idx) {
