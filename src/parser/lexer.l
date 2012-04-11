@@ -5,9 +5,9 @@
 #include "parser.h"
 
 #ifdef __DEBUG__
-#define DEBUG_PRINT(s) (fprintf(stderr, (s), yytext))
+#define DEBUG_PRINT(s) do { fprintf(stderr, (s), yytext); } while (0)
 #else
-#define DEBUG_PRINT(s) ()
+#define DEBUG_PRINT(s) do {} while (0)
 #endif
 
 %}
