@@ -169,6 +169,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   for (role_idx=0; role_idx<sess->nrole; role_idx++) {
     sess->roles[role_idx] = (role *)malloc(sizeof(role));
     sess->roles[role_idx]->type = SESSION_ROLE_P2P;
+    sess->roles[role_idx]->s = sess;
     sess->roles[role_idx]->p2p = (struct role_endpoint *)malloc(sizeof(struct role_endpoint));
 
     sess->roles[role_idx]->p2p->name = (char *)calloc(sizeof(char), strlen(tree->info->roles[role_idx])+1);

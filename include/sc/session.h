@@ -31,6 +31,7 @@ struct role_group {
  * (3) Group of unnamed indexed roles.
  */
 struct role_t {
+  struct session_t *s;
   int type;
 
   union {
