@@ -8,8 +8,10 @@
 #include <zmq.h>
 
 #include "connmgr.h"
-#include "session.h"
 #include "st_node.h"
+
+#include "sc.h"
+#include "sc/session.h"
 
 extern FILE *yyin;
 extern int yyparse();
@@ -50,6 +52,10 @@ role *find_role_in_session(session *s, char *role_name)
 void session_init(int *argc, char ***argv, session **s, const char *scribble)
 {
   unsigned int role_idx;
+#ifdef __DEBUG__
+  fprintf(stdout, "Session C version %d.%d.%d\n", SESSIONC_MAJOR, SESSIONC_MINOR, SESSIONC_PATCH);
+#endif
+
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
 
   // Get meta information from Scribble protocol.
@@ -127,14 +133,14 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
       hosts_file = "hosts";
       fprintf(stderr, "Warning: host file not specified (-s), reading from `%s'\n", hosts_file);
     }
+    nhosts = connmgr_load_hosts(hosts_file, &hosts);
     if (protocol_file == NULL) {
       protocol_file = "Protocol.spr";
       fprintf(stderr, "Warning: protocol file not specified (-p), reading from `%s'\n", protocol_file);
     }
-
-    nhosts = connmgr_load_hosts(hosts_file, &hosts);
     nroles = connmgr_load_roles(protocol_file, &roles);
-    nconns = connmgr_init(&conns, &hosts_roles, roles, nroles, hosts, nhosts, 6666);
+
+    nconns = connmgr_init(&conns, &hosts_roles, roles, nroles, hosts, nhosts, 2048);
 
   } else { // Use config file.
 

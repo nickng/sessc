@@ -6,6 +6,11 @@ LDFLAGS += -lzmq
 
 all: $(BUILD_DIR)/libsc.a 
 
+# Override runtime build rules (header files under sc/)
+$(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/sc/%.h
+	$(CC) $(CFLAGS) -c $*.c \
+	  -o $(BUILD_DIR)/$*.o
+
 $(BUILD_DIR)/%.a: $(OBJS)
 	$(RM) $(BUILD_DIR)/$*.a $(LIB_DIR)/$*.a
 	$(AR) $(ARFLAGS) $@ $(OBJS)
