@@ -101,6 +101,18 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 #ifdef __DEBUG__
   fprintf(stderr, "%s(%d roles, %d hosts)\n", __FUNCTION__, roles_count, hosts_count);
 #endif
+
+  if (hosts_count == 0) {
+    fprintf(stderr, "%s: Warning: No hosts defined, defaulting to localhost for all processes\n", __FUNCTION__);
+    hosts = (char **)malloc(sizeof(char *) * roles_count);
+    int host_idx;
+    for (host_idx=0; host_idx<roles_count; ++host_idx) {
+      hosts[host_idx] = "localhost";
+    }
+    hosts_count = roles_count;
+  }
+
+
   // Allocate memory for conn_rec.
   int nr_of_connections = (roles_count*(roles_count-1))/2; // N * (N-1) / 2
   *conns = (conn_rec *)malloc(sizeof(conn_rec) * nr_of_connections);
