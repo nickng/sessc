@@ -41,7 +41,7 @@ role *find_role_in_session(session *s, char *role_name)
   fprintf(stderr, "%s: Role %s not found in session.\n",
       __FUNCTION__, role_name);
 #ifdef __DEBUG__
-  dump_session(s);
+  session_dump(s);
 #endif
   return NULL;
 }
@@ -53,8 +53,14 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
 
   // Get meta information from Scribble protocol.
-  yyin = fopen(scribble, "r");
+  if ((yyin = fopen(scribble, "r")) == NULL) {
+    fprintf(stderr, "Warning: Cannot open %s, reading from stdin\n", scribble);
+  }
   yyparse(tree);
+
+#ifdef __DEBUG__
+  st_tree_print(tree);
+#endif
 
 
   // Sanity check.
@@ -102,9 +108,9 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     }
   }
 
-  *argc -= optind;
-  *argv += optind;
-
+  *argc -= optind-1;
+  (*argv)[optind-1] = (*argv)[0];
+  *argv += optind-1;
 
   conn_rec *conns;
   int nconns;
@@ -118,12 +124,12 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   if (config_file == NULL) { // Generate dynamic connection parameters (config file absent).
 
     if (hosts_file == NULL) {
-      hosts_file = (char *)calloc(sizeof(char), 6);
       hosts_file = "hosts";
+      fprintf(stderr, "Warning: host file not specified (-s), reading from `%s'\n", hosts_file);
     }
     if (protocol_file == NULL) {
-      protocol_file = (char *)calloc(sizeof(char), 13);
       protocol_file = "Protocol.spr";
+      fprintf(stderr, "Warning: protocol file not specified (-p), reading from `%s'\n", protocol_file);
     }
 
     nhosts = connmgr_load_hosts(hosts_file, &hosts);
@@ -135,6 +141,12 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     nconns = connmgr_read(config_file, &conns, &hosts_roles, &nroles);
 
   }
+
+#ifdef __DEBUG__
+  printf("\n------Conn Mgr------\n");
+  connmgr_write("-", conns, nconns, hosts_roles, nroles);
+  printf("--------------------\n");
+#endif
 
 
   *s = (session *)malloc(sizeof(session));
