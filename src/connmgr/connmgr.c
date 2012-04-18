@@ -115,7 +115,7 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 
   // Allocate memory for conn_rec.
   int nr_of_connections = (roles_count*(roles_count-1))/2; // N * (N-1) / 2
-  *conns = (conn_rec *)malloc(sizeof(conn_rec) * nr_of_connections);
+  *conns = (conn_rec *)malloc(sizeof(conn_rec) * (nr_of_connections + roles_count));
   conn_rec *cr = *conns; // Alias.
 
   // Create a map of role to host.
@@ -142,6 +142,7 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
   for (role_idx=0, conn_idx=0; role_idx<roles_count; ++role_idx) {
     for (role2_idx=role_idx+1; role2_idx<roles_count; ++role2_idx) {
       assert(conn_idx<nr_of_connections);
+      cr[conn_idx].type = CONNMGR_TYPE_P2P;
       // Set from-role.
       cr[conn_idx].from = (char *)calloc(sizeof(char), (strlen(roles[role_idx]) + 1));
       strcpy(cr[conn_idx].from, roles[role_idx]);
@@ -179,7 +180,39 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
       ++conn_idx;
     }
   }
-  return nr_of_connections;
+
+  // Broadcast role generation
+  for (role_idx=0; role_idx<roles_count; ++role_idx) {
+    cr[conn_idx].type = CONNMGR_TYPE_GRP;
+    cr[conn_idx].from = (char *)calloc(sizeof(char), (strlen(roles[role_idx]) + 1));
+    strcpy(cr[conn_idx].from, roles[role_idx]);
+
+    cr[conn_idx].to = (char *)calloc(sizeof(char), (strlen(roles[role_idx]) + 1));
+    strcpy(cr[conn_idx].to, roles[role_idx]);
+
+    // Lookup host from role_hosts map.
+    for (map_idx=0; map_idx<roles_count; ++map_idx) {
+      if (strcmp(cr[conn_idx].to, rh[map_idx].role) == 0) {
+        cr[conn_idx].host = (char *)calloc(sizeof(char), (strlen(rh[map_idx].host) + 1));
+        strcpy(cr[conn_idx].host, rh[map_idx].host);
+      }
+    }
+
+    // Find next unoccupied port.
+    port_nr = -1;
+    for (conn2_idx=0; conn2_idx<conn_idx; ++conn2_idx) {
+      if (strcmp(cr[conn2_idx].host, cr[conn_idx].host) == 0) {
+        port_nr = cr[conn2_idx].port;
+      }
+    }
+    cr[conn_idx].port = (port_nr==-1 ? start_port : port_nr+1);
+
+    ++conn_idx;
+  }
+
+  printf("%d %d %d\n", nr_of_connections, roles_count, conn_idx);
+
+  return nr_of_connections + roles_count;
 }
 
 
@@ -210,7 +243,8 @@ void connmgr_write(const char *outfile, const conn_rec conns[], int nconns,
   }
 
   for (conn_idx=0; conn_idx<nconns; ++conn_idx) {
-    fprintf(out_fp, "%s %s %s %d\n",
+    fprintf(out_fp, "%d %s %s %s %d\n",
+              conns[conn_idx].type,
               conns[conn_idx].from,
               conns[conn_idx].to,
               conns[conn_idx].host,
@@ -257,7 +291,7 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
     cr[conn_idx].from = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     cr[conn_idx].to   = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     cr[conn_idx].host = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
-    fscanf(in_fp, "%s %s %s %u\n", cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, &cr[conn_idx].port);
+    fscanf(in_fp, "%d %s %s %s %u\n", &cr[conn_idx].type, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, &cr[conn_idx].port);
 #ifdef __DEBUG__
     fprintf(stderr, "%s: #%d %s->%s %s:%u\n",
                       __FUNCTION__, conn_idx, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, cr[conn_idx].port);

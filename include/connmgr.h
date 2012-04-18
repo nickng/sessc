@@ -9,8 +9,12 @@
 #define MAX_NR_OF_ROLES 100 // Maximum number of endpoint roles.
 #define MAX_HOSTNAME_LENGTH 256
 
+#define CONNMGR_TYPE_P2P 1
+#define CONNMGR_TYPE_GRP 2
+
 // A connection record.
 typedef struct {
+  int type;
   char *from;
   char *to;
   char *host;
