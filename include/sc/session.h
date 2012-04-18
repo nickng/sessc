@@ -2,7 +2,7 @@
 #define SESSION_H__
 
 #define SESSION_ROLE_P2P     0
-#define SESSION_ROLE_NAMED   1
+#define SESSION_ROLE_GRP     1
 #define SESSION_ROLE_INDEXED 2
 
 
@@ -17,8 +17,8 @@ struct role_group {
   unsigned int nendpoint;
   struct role_endpoint **endpoints;
 
-  struct role_endpoint *inptr;  // SUB
-  struct role_endpoint *outptr; // PUB
+  struct role_endpoint *in;  // SUB
+  struct role_endpoint *out; // PUB
 };
 
 
@@ -36,7 +36,7 @@ struct role_t {
 
   union {
     struct role_endpoint *p2p;
-    struct role_group    *group;
+    struct role_group    *grp;
   };
 };
 

@@ -26,11 +26,13 @@ role *find_role_in_session(session *s, char *role_name)
     switch (s->roles[role_idx]->type) {
       case SESSION_ROLE_P2P: 
         if (strcmp(s->roles[role_idx]->p2p->name, role_name) == 0) {
-          return s->roles[role_idx]->p2p->ptr;
+          return s->roles[role_idx];
         }
         break;
-      case SESSION_ROLE_NAMED:
-        assert(0); // TODO handle named endpoint
+      case SESSION_ROLE_GRP:
+        if (strcmp(s->roles[role_idx]->grp->name, role_name) == 0) {
+          return s->roles[role_idx];
+        }
         break;
       case SESSION_ROLE_INDEXED:
         assert(0); // TODO handle indexed endpoint
@@ -177,7 +179,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 
     for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for matching connection parameter
 
-      if (strcmp(conns[conn_idx].to, sess->roles[role_idx]->p2p->name) == 0) { // As a client.
+      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].to, sess->roles[role_idx]->p2p->name) == 0) { // As a client.
         assert(strlen(conns[conn_idx].host) < 255 && conns[conn_idx].port < 65536);
         if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
           sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
@@ -196,7 +198,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
         break;
       }
 
-      if (strcmp(conns[conn_idx].from, sess->roles[role_idx]->p2p->name) == 0) { // As a server.
+      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].from, sess->roles[role_idx]->p2p->name) == 0) { // As a server.
         assert(conns[conn_idx].port < 65536);
         if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
           sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
@@ -218,6 +220,58 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     }
 
   }
+
+  // Add a _Others group role.
+  sess->nrole++;
+  sess->roles = (role **)realloc(sess->roles, sizeof(role *) * sess->nrole);
+  sess->roles[sess->nrole-1] = (role *)malloc(sizeof(role)); // A group role at roles[last_index]
+  sess->roles[sess->nrole-1]->type = SESSION_ROLE_GRP;
+  sess->roles[sess->nrole-1]->s = sess;
+  sess->roles[sess->nrole-1]->grp = (struct role_group *)malloc(sizeof(struct role_group));
+
+  sess->roles[sess->nrole-1]->grp->name = "_Others";
+  sess->roles[sess->nrole-1]->grp->nendpoint = tree->info->nrole;
+  sess->roles[sess->nrole-1]->grp->endpoints
+      = (struct role_endpoint **)malloc(sizeof(struct role_endpoint *) * sess->roles[sess->nrole-1]->grp->nendpoint);
+  // Copy endpoints to our global group role.
+  unsigned int endpoint_idx;
+  for (endpoint_idx=0; endpoint_idx<sess->roles[sess->nrole-1]->grp->nendpoint; endpoint_idx++) {
+    if (sess->roles[endpoint_idx]->type == SESSION_ROLE_P2P) {
+      sess->roles[sess->nrole-1]->grp->endpoints[endpoint_idx] = sess->roles[endpoint_idx]->p2p;
+    }
+  }
+
+  sess->roles[sess->nrole-1]->grp->in  = (struct role_endpoint *)malloc(sizeof(struct role_endpoint));
+  sess->roles[sess->nrole-1]->grp->out = (struct role_endpoint *)malloc(sizeof(struct role_endpoint));
+
+  // Setup a SUB (broadcast-in) socket
+  if ((sess->roles[sess->nrole-1]->grp->in->ptr = zmq_socket(sess->ctx, ZMQ_SUB)) == NULL) perror("zmq_socket");
+  // Setup a series of PUB (broadcast-out) socket
+  if ((sess->roles[sess->nrole-1]->grp->out->ptr = zmq_socket(sess->ctx, ZMQ_PUB)) == NULL) perror("zmq_socket");
+
+  for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for the broadcast socket
+    if ((CONNMGR_TYPE_GRP == conns[conn_idx].type) && (strcmp(conns[conn_idx].to, sess->name) == 0)) {
+      sprintf(sess->roles[sess->nrole-1]->grp->in->uri, "tcp://*:%u", conns[conn_idx].port);
+#ifdef __DEBUG__
+      fprintf(stderr, "Broadcast in-socket: %s\n",
+        sess->roles[sess->nrole-1]->grp->in->uri);
+#endif
+      if (zmq_bind(sess->roles[sess->nrole-1]->grp->in->ptr, sess->roles[sess->nrole-1]->grp->in->uri) != 0) perror("zmq_bind");
+      break;
+    }
+  }
+
+  for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for the broadcast socket
+    if ((CONNMGR_TYPE_GRP == conns[conn_idx].type) && (strcmp(conns[conn_idx].to, sess->name) != 0)) {
+      sprintf(sess->roles[sess->nrole-1]->grp->out->uri, "tcp://%s:%u", conns[conn_idx].host, conns[conn_idx].port);
+#ifdef __DEBUG__
+      fprintf(stderr, "Broadcast out-socket: %s\n",
+        sess->roles[sess->nrole-1]->grp->out->uri);
+#endif
+      if (zmq_connect(sess->roles[sess->nrole-1]->grp->out->ptr, sess->roles[sess->nrole-1]->grp->out->uri) != 0) perror("zmq_connect");
+    }
+  }
+  zmq_setsockopt(sess->roles[sess->nrole-1]->grp->in->ptr, ZMQ_SUBSCRIBE, "", 0);
 
   sess->r = &find_role_in_session;
 
@@ -247,8 +301,15 @@ void session_end(session *s)
           perror("zmq_close");
         }
         break;
-      case SESSION_ROLE_NAMED:
-        assert(0); // TODO handle named endpoint
+      case SESSION_ROLE_GRP:
+        if (zmq_close(s->roles[role_idx]->grp->in->ptr)) {
+          perror("zmq_close");
+        }
+        if (zmq_close(s->roles[role_idx]->grp->out->ptr)) {
+          perror("zmq_close");
+        }
+        free(s->roles[role_idx]->grp->in);
+        free(s->roles[role_idx]->grp->out);
         break;
       case SESSION_ROLE_INDEXED:
         assert(0); // TODO handle indexed endpoint
@@ -289,17 +350,20 @@ void session_dump(const session *s)
           s->roles[endpoint_idx]->p2p->name,
           s->roles[endpoint_idx]->p2p->uri);
         break;
-      case SESSION_ROLE_NAMED:
-        assert(s->roles[endpoint_idx]->group != NULL);
+      case SESSION_ROLE_GRP:
+        assert(s->roles[endpoint_idx]->grp != NULL);
         printf("Endpoint#%u { type: group, name: %s, endpoints: [\n",
           endpoint_idx,
-          s->roles[endpoint_idx]->group->name);
+          s->roles[endpoint_idx]->grp->name);
+        printf(" in { uri: %s }, out { uri: %s }\n",
+          s->roles[endpoint_idx]->grp->in->uri,
+          s->roles[endpoint_idx]->grp->out->uri);
         unsigned int grp_endpoint_idx;
-        unsigned int grp_endpoint_count = s->roles[endpoint_idx]->group->nendpoint;
+        unsigned int grp_endpoint_count = s->roles[endpoint_idx]->grp->nendpoint;
         for (grp_endpoint_idx=0; grp_endpoint_idx<grp_endpoint_count; grp_endpoint_idx++) {
           printf("  { name: %s, uri: %s }\n",
-            s->roles[endpoint_idx]->group->endpoints[grp_endpoint_idx]->name,
-            s->roles[endpoint_idx]->group->endpoints[grp_endpoint_idx]->uri);
+            s->roles[endpoint_idx]->grp->endpoints[grp_endpoint_idx]->name,
+            s->roles[endpoint_idx]->grp->endpoints[grp_endpoint_idx]->uri);
         }
         printf("]}\n");
         break;

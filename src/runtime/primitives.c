@@ -32,7 +32,16 @@ int send_int(int val, role *r)
   memcpy(buf, &val, sizeof(int));
 
   zmq_msg_init_data(&msg, buf, sizeof(int), _dealloc, NULL);
-  rc = zmq_send(r, &msg, 0);
+  switch (r->type) {
+    case SESSION_ROLE_P2P:
+      rc = zmq_send(r->p2p->ptr, &msg, 0);
+      break;
+    case SESSION_ROLE_GRP:
+      rc = zmq_send(r->grp->out->ptr, &msg, 0);
+      break;
+    default:
+        fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
+  }
   zmq_msg_close(&msg);
  
 #ifdef __DEBUG__
@@ -87,7 +96,16 @@ int recv_int(int *dst, role *r)
 #endif
 
   zmq_msg_init(&msg);
-  rc = zmq_recv(r, &msg, 0);
+  switch (r->type) {
+    case SESSION_ROLE_P2P:
+      rc = zmq_recv(r->p2p->ptr, &msg, 0);
+      break;
+    case SESSION_ROLE_GRP:
+      rc = zmq_recv(r->grp->in->ptr, &msg, 0);
+      break;
+    default:
+        fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
+  }
   assert(zmq_msg_size(&msg) == sizeof(int));
   memcpy(dst, (int *)zmq_msg_data(&msg), zmq_msg_size(&msg));
   zmq_msg_close(&msg);
