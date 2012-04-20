@@ -12,6 +12,7 @@
 
 #include "sc.h"
 #include "sc/session.h"
+#include "sc/utils.h"
 
 extern FILE *yyin;
 extern int yyparse();
@@ -55,7 +56,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 {
   unsigned int role_idx;
 #ifdef __DEBUG__
-  fprintf(stdout, "Session C version %d.%d.%d\n", SESSIONC_MAJOR, SESSIONC_MINOR, SESSIONC_PATCH);
+  sc_print_version();
 #endif
 
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
