@@ -10,19 +10,24 @@
 #include "connmgr.h"
 #include "st_node.h"
 
-#include "sc.h"
-#include "sc/session.h"
+#include "sc/types.h"
 #include "sc/utils.h"
+
 
 extern FILE *yyin;
 extern int yyparse();
 
 /**
  * Helper function to lookup a role in a session.
+ *
  */
 role *find_role_in_session(session *s, char *role_name)
 {
   int role_idx;
+#ifdef __DEBUG__
+  fprintf(stderr, "%s: { role: %s } in ", __FUNCTION__, role_name);
+  session_dump(s);
+#endif
   for (role_idx=0; role_idx<s->nrole; ++role_idx) {
     switch (s->roles[role_idx]->type) {
       case SESSION_ROLE_P2P: 
@@ -273,6 +278,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     }
   }
   zmq_setsockopt(sess->roles[sess->nrole-1]->grp->in->ptr, ZMQ_SUBSCRIBE, "", 0);
+  zmq_setsockopt(sess->roles[sess->nrole-1]->grp->out->ptr, ZMQ_LINGER, 0, 0);
 
   sess->r = &find_role_in_session;
 
