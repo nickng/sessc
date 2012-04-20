@@ -1,3 +1,9 @@
+/**
+ * \file
+ * Session C runtime library (libsc)
+ * session handling module.
+ */
+
 #include <assert.h>
 #include <getopt.h>
 #include <stdio.h>

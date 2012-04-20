@@ -1,4 +1,9 @@
-#include <assert.h>
+/**
+ * \file
+ * Session C runtime library (libsc)
+ * miscellaneous utilities module.
+ */
+
 #include <stdio.h>
 #include <sys/time.h>
 
@@ -22,5 +27,8 @@ double sc_time_diff(long long t0, long long t1)
 
 void sc_print_version()
 {
-  printf("Session C runtime library (version %d.%d.%d)\n", SESSIONC_MAJOR, SESSIONC_MINOR, SESSIONC_PATCH);
+  printf("Session C runtime library (version %d.%d.%d)\n",
+    SESSIONC_MAJOR,
+    SESSIONC_MINOR,
+    SESSIONC_PATCH);
 }

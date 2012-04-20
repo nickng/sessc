@@ -1,15 +1,14 @@
-#ifndef PRIMITIVES_H__
-#define PRIMITIVES_H__
+#ifndef SC__PRIMITIVES_H__
+#define SC__PRIMITIVES_H__
 /**
  * \file
- * This file is the communication primitives module header file
- * of the Session C runtime library (libsc)
- *
+ * Session C runtime library (libsc)
+ * communication primitives module.
  */
 
 #include <stdarg.h>
 
-#include "sc/session.h"
+#include "sc/types.h"
 
 /**
  * \brief Send an integer.
@@ -49,4 +48,4 @@ int vsend_int(int val, int nr_of_roles, ...);
 int recv_int(int *dst, role *r);
 
 
-#endif // PRIMITIVES_H__
+#endif // SC__PRIMITIVES_H__

@@ -4,7 +4,6 @@
  * \file
  * Session C runtime library (libsc)
  * miscellaneous utilities module.
- *
  */
 
 
@@ -29,8 +28,8 @@ double sc_time_diff(long long t0, long long t1);
 
 /**
  * \brief Print the Session C version.
- *
  */
 void sc_print_version();
+
 
 #endif // SC__UTILS_H__

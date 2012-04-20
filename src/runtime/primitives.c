@@ -1,3 +1,9 @@
+/**
+ * \file
+ * Session C runtime library (libsc)
+ * communication primitives module.
+ */
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -28,7 +34,7 @@ int send_int(int val, role *r)
   fprintf(stderr, " --> %s(%d) ", __FUNCTION__, val);
 #endif
 
-  int *buf = malloc(sizeof(int));
+  int *buf = (int *)malloc(sizeof(int));
   memcpy(buf, &val, sizeof(int));
 
   zmq_msg_init_data(&msg, buf, sizeof(int), _dealloc, NULL);
@@ -37,6 +43,9 @@ int send_int(int val, role *r)
       rc = zmq_send(r->p2p->ptr, &msg, 0);
       break;
     case SESSION_ROLE_GRP:
+#ifdef __DEBUG__
+      fprintf(stderr, "Broadcast to %s(%d endpoints)\n", r->grp->name, r->grp->nendpoint);
+#endif
       rc = zmq_send(r->grp->out->ptr, &msg, 0);
       break;
     default:
@@ -101,6 +110,9 @@ int recv_int(int *dst, role *r)
       rc = zmq_recv(r->p2p->ptr, &msg, 0);
       break;
     case SESSION_ROLE_GRP:
+#ifdef __DEBUG__
+      fprintf(stderr, "Broadcast from %s\n", r->grp->name);
+#endif
       rc = zmq_recv(r->grp->in->ptr, &msg, 0);
       break;
     default:
