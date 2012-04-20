@@ -1,2 +1,6 @@
 # Generated files
+#
 parser.h
+# Local copy for ZMQ
+#
+zmq*
