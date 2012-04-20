@@ -15,7 +15,7 @@
 #include "connmgr.h"
 #include "st_node.h"
 
-extern int yyparse();
+extern int yyparse(st_tree *t);
 extern FILE *yyin;
 
 
@@ -209,8 +209,6 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 
     ++conn_idx;
   }
-
-  printf("%d %d %d\n", nr_of_connections, roles_count, conn_idx);
 
   return nr_of_connections + roles_count;
 }

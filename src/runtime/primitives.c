@@ -44,7 +44,7 @@ int send_int(int val, role *r)
       break;
     case SESSION_ROLE_GRP:
 #ifdef __DEBUG__
-      fprintf(stderr, "Broadcast to %s(%d endpoints)\n", r->grp->name, r->grp->nendpoint);
+      fprintf(stderr, "bcast -> %s(%d endpoints) ", r->grp->name, r->grp->nendpoint);
 #endif
       rc = zmq_send(r->grp->out->ptr, &msg, 0);
       break;
@@ -111,7 +111,7 @@ int recv_int(int *dst, role *r)
       break;
     case SESSION_ROLE_GRP:
 #ifdef __DEBUG__
-      fprintf(stderr, "Broadcast from %s\n", r->grp->name);
+      fprintf(stderr, "bcast <- %s(%d endpoints) ", r->grp->name, r->grp->nendpoint);
 #endif
       rc = zmq_recv(r->grp->in->ptr, &msg, 0);
       break;

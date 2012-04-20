@@ -1,10 +1,15 @@
 %{
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "st_node.h"
 #include "parser_types.h"
+
+#ifdef __DEBUG__
+#define YYDEBUG 1
+#endif 
 
 extern int yylex();
 extern FILE *yyin;
@@ -53,7 +58,6 @@ void yyerror(st_tree *tree, const char *s)
     st_nodes *node_list;
     st_node_msgsig_t msgsig;
 }
-
 
 %start scribble_protocol
 
@@ -151,7 +155,7 @@ global_interaction_blk      :   LBRACE global_interaction_seq RBRACE {
                                                                      }
                             ;
 
-global_interaction_seq      :                                               {   $$ = (st_nodes *)malloc(sizeof(st_nodes));  }
+global_interaction_seq      :                                               {   $$ = memset((st_nodes *)malloc(sizeof(st_nodes)), 0, sizeof(st_node)); }
                             |   global_interaction global_interaction_seq   {
                                                                                 $2->nodes = (st_node **)realloc($2->nodes, sizeof(st_node *) * ($2->count+1));
                                                                                 $2->nodes[$2->count++] = $1;
@@ -243,7 +247,7 @@ continue                    :   CONTINUE IDENT SEMICOLON {
 
 /* --------------------------- Local Protocols --------------------------- */
 
-local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_decl_list RPAREN local_prot_body  {
+local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_decl_list RPAREN local_prot_body  { 
                                                                                                                     st_tree_set_name(tree, $3);
                                                                                                                     tree->info->global = 0;
                                                                                                                     tree->info->myrole = (char *)calloc(sizeof(char), strlen($5)+1);

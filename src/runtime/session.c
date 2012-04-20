@@ -16,12 +16,20 @@
 #include "connmgr.h"
 #include "st_node.h"
 
+#include "sc/session.h"
 #include "sc/types.h"
 #include "sc/utils.h"
 
 
 extern FILE *yyin;
-extern int yyparse();
+extern int yyparse(st_tree *tree);
+#ifdef __DEBUG__
+long long DEBUG_prog_start_time;
+long long DEBUG_sess_start_time;
+long long DEBUG_sess_end_time;
+long long DEBUG_prog_end_time;
+#endif
+
 
 /**
  * Helper function to lookup a role in a session.
@@ -68,6 +76,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   unsigned int role_idx;
 #ifdef __DEBUG__
   sc_print_version();
+  DEBUG_prog_start_time = sc_time();
 #endif
 
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
@@ -79,6 +88,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   yyparse(tree);
 
 #ifdef __DEBUG__
+  printf("The local protocol:");
   st_tree_print(tree);
 #endif
 
@@ -152,9 +162,10 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
       protocol_file = "Protocol.spr";
       fprintf(stderr, "Warning: protocol file not specified (-p), reading from `%s'\n", protocol_file);
     }
-    nroles = connmgr_load_roles(protocol_file, &roles);
 
-    nconns = connmgr_init(&conns, &hosts_roles, roles, nroles, hosts, nhosts, 2048);
+
+    nroles = connmgr_load_roles(protocol_file, &roles);
+    nconns = connmgr_init(&conns, &hosts_roles, roles, nroles, hosts, nhosts, 7777);
 
   } else { // Use config file.
 
@@ -167,7 +178,6 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   connmgr_write("-", conns, nconns, hosts_roles, nroles);
   printf("--------------------\n");
 #endif
-
 
   *s = (session *)malloc(sizeof(session));
   session *sess = *s;
@@ -289,6 +299,9 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   sess->r = &find_role_in_session;
 
   free(tree);
+#ifdef __DEBUG__
+  DEBUG_sess_start_time = sc_time();
+#endif
 }
 
 
@@ -303,6 +316,10 @@ void session_end(session *s)
 {
   unsigned int role_idx;
   unsigned int role_count = s->nrole;
+
+#ifdef __DEBUG__
+  DEBUG_sess_end_time = sc_time();
+#endif
 
   sleep(1);
 
@@ -341,6 +358,13 @@ void session_end(session *s)
   zmq_term(s->ctx);
   s->r = NULL;
   free(s);
+#ifdef __DEBUG__
+  DEBUG_prog_end_time = sc_time();
+  printf("----- Statistics -----\n");
+  printf("Total execution time (including session init and cleanup): %f sec\n", sc_time_diff(DEBUG_prog_start_time, DEBUG_prog_end_time));
+  printf("Total time in session: %f sec\n", sc_time_diff(DEBUG_sess_start_time, DEBUG_sess_end_time));
+  printf("----------------------\n");
+#endif
 }
 
 

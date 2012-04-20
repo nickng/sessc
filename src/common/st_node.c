@@ -7,6 +7,7 @@
  * \headerfile "st_node.h"
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 
 st_tree *st_tree_init(st_tree *tree)
 {
+  assert(tree != NULL);
   tree->info = (st_info *)malloc(sizeof(st_info));
   tree->info->nrole   = 0;
   tree->info->nimport = 0;
@@ -27,6 +29,7 @@ st_tree *st_tree_init(st_tree *tree)
 
 st_tree *st_tree_set_name(st_tree *tree, const char *name)
 {
+  assert(tree != NULL);
   tree->info->name = (char *)calloc(sizeof(char), strlen(name)+1);
   strcpy(tree->info->name, name);
 
@@ -36,6 +39,7 @@ st_tree *st_tree_set_name(st_tree *tree, const char *name)
 
 st_tree *st_tree_add_role(st_tree *tree, const char *role)
 {
+  assert(tree != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
     tree->info->roles = (char **)malloc(sizeof(char *));
@@ -55,6 +59,7 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
 
 st_tree *st_tree_add_import(st_tree *tree, st_tree_import_t import)
 {
+  assert(tree != NULL);
   if (tree->info == NULL) {
     tree->info = malloc(sizeof(st_info));
     tree->info->nrole = 0;
@@ -79,6 +84,7 @@ st_tree *st_tree_add_import(st_tree *tree, st_tree_import_t import)
 
 st_node *st_node_init(st_node *node, int type)
 {
+  assert(node != NULL);
   node->type = type;
   switch (type) {
     case ST_NODE_ROOT:
@@ -111,6 +117,8 @@ st_node *st_node_init(st_node *node, int type)
 
 st_node *st_node_append(st_node *node, st_node *child)
 {
+  assert(node != NULL);
+  assert(child != NULL);
   if (node->nchild == 0) {
     // Allocate for 1 node.
     node->children = (st_node **)malloc(sizeof(st_node *));
