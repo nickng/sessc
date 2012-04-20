@@ -1,0 +1,3 @@
+[submodule "upstream/zeromq2-x"]
+	path = upstream/zeromq2-x
+	url = https://github.com/zeromq/zeromq2-x
