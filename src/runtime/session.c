@@ -163,7 +163,6 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
       fprintf(stderr, "Warning: protocol file not specified (-p), reading from `%s'\n", protocol_file);
     }
 
-
     nroles = connmgr_load_roles(protocol_file, &roles);
     nconns = connmgr_init(&conns, &hosts_roles, roles, nroles, hosts, nhosts, 7777);
 

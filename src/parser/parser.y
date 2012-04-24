@@ -155,7 +155,7 @@ global_interaction_blk      :   LBRACE global_interaction_seq RBRACE {
                                                                      }
                             ;
 
-global_interaction_seq      :                                               {   $$ = memset((st_nodes *)malloc(sizeof(st_nodes)), 0, sizeof(st_node)); }
+global_interaction_seq      :                                               {   $$ = memset((st_nodes *)malloc(sizeof(st_nodes)), 0, sizeof(st_nodes)); }
                             |   global_interaction global_interaction_seq   {
                                                                                 $2->nodes = (st_node **)realloc($2->nodes, sizeof(st_node *) * ($2->count+1));
                                                                                 $2->nodes[$2->count++] = $1;
