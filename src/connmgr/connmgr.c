@@ -138,7 +138,7 @@ int connmgr_init(conn_rec **conns, host_map **role_hosts,
 
   unsigned port_nr;
   int conn_idx, conn2_idx, map_idx, role2_idx;
-  char *from_host;
+  char *from_host = NULL;
   for (role_idx=0, conn_idx=0; role_idx<roles_count; ++role_idx) {
     for (role2_idx=role_idx+1; role2_idx<roles_count; ++role2_idx) {
       assert(conn_idx<nr_of_connections);
@@ -269,7 +269,9 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
     return 0;
   }
 
-  fscanf(in_fp, "%d %d", nr_of_roles, &nr_of_conns);
+  if (EOF == fscanf(in_fp, "%d %d", nr_of_roles, &nr_of_conns)) {
+    perror("fscanf");
+  }
   *conns      = malloc(sizeof(conn_rec) * nr_of_conns);
   *role_hosts = malloc(sizeof(host_map) * (*nr_of_roles));
   cr = *conns;
@@ -278,7 +280,9 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
   for (role_idx=0; role_idx<*nr_of_roles; ++role_idx) {
     rh[role_idx].role = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     rh[role_idx].host = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
-    fscanf(in_fp, "%s %s", rh[role_idx].role, rh[role_idx].host);
+    if (EOF == fscanf(in_fp, "%s %s", rh[role_idx].role, rh[role_idx].host)) {
+      perror("fscanf");
+    }
 #ifdef __DEBUG__
     fprintf(stderr, "%s: #%d %s %s\n",
                       __FUNCTION__, role_idx, rh[role_idx].role, rh[role_idx].host);
@@ -289,7 +293,9 @@ int connmgr_read(const char *infile, conn_rec **conns, host_map **role_hosts, in
     cr[conn_idx].from = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     cr[conn_idx].to   = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
     cr[conn_idx].host = malloc(sizeof(char) * MAX_HOSTNAME_LENGTH);
-    fscanf(in_fp, "%d %s %s %s %u\n", &cr[conn_idx].type, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, &cr[conn_idx].port);
+    if (EOF == fscanf(in_fp, "%d %s %s %s %u\n", &cr[conn_idx].type, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, &cr[conn_idx].port)) {
+      perror("fscanf");
+    }
 #ifdef __DEBUG__
     fprintf(stderr, "%s: #%d %s->%s %s:%u\n",
                       __FUNCTION__, conn_idx, cr[conn_idx].from, cr[conn_idx].to, cr[conn_idx].host, cr[conn_idx].port);

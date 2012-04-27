@@ -331,10 +331,10 @@ void session_end(session *s)
         }
         break;
       case SESSION_ROLE_GRP:
-        if (zmq_close(s->roles[role_idx]->grp->in->ptr)) {
+        if (zmq_close(s->roles[role_idx]->grp->in->ptr) != 0) {
           perror("zmq_close");
         }
-        if (zmq_close(s->roles[role_idx]->grp->out->ptr)) {
+        if (zmq_close(s->roles[role_idx]->grp->out->ptr) != 0) {
           perror("zmq_close");
         }
         free(s->roles[role_idx]->grp->in);
