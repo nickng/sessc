@@ -1,0 +1,7 @@
+local protocol Pingpong at A(role B) {
+  rec LOOP {
+    int() to B;
+    int() from B;
+    continue LOOP;
+  }
+}

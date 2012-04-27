@@ -1,0 +1,7 @@
+global protocol Pingpong(role A, role B) {
+  rec LOOP {
+    int() from A to B;
+    int() from B to A;
+    continue LOOP;
+  }
+}
