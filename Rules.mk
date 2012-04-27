@@ -8,7 +8,7 @@ $(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/%.h
 	  -o $(BUILD_DIR)/$*.o
 
 clean:
-	$(RM) $(BUILD_DIR)/*
+	$(RM) -r $(BUILD_DIR)/*
 	$(RM) -r $(BIN_DIR)/*
 
 clean-docs:
