@@ -74,4 +74,16 @@ int recv_int(int *dst, role *r);
 int recv_int_array(int *arr, size_t *count, role *r);
 
 
+/**
+ * \brief Barrier synchronisation.
+ *
+ * @param[in] grp_role    Group role to perform barrier synchronisation on
+ * @param[in] at_rolename Role name (string) to act as central coordinator
+ *
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_recv)
+ */
+int barrier(role *grp_role, char *at_rolename);
+
+
 #endif // SC__PRIMITIVES_H__

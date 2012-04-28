@@ -60,6 +60,8 @@ int send_int_array(const int arr[], size_t count, role *r)
         fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
   }
   zmq_msg_close(&msg);
+
+  if (rc != 0) perror(__FUNCTION__);
  
 #ifdef __DEBUG__
   fprintf(stderr, ".\n");
@@ -87,6 +89,7 @@ int vsend_int(int val, int nr_of_roles, ...)
     fprintf(stderr, "   +");
 #endif
     rc |= send_int(val, r);
+    if (rc != 0) perror(__FUNCTION__);
   }
   va_end(roles);
 
@@ -143,9 +146,84 @@ int recv_int_array(int *arr, size_t *count, role *r)
   }
   zmq_msg_close(&msg);
 
+  if (rc != 0) perror(__FUNCTION__);
+
 #ifdef __DEBUG__
   fprintf(stderr, "[%d ...] .\n", *arr);
 #endif
+
+  return rc;
+}
+
+
+int barrier(role *grp_role, char *at_rolename)
+{
+  if (grp_role->type != SESSION_ROLE_GRP) {
+    fprintf(stderr, "Error: cannot perform barrier synchronisation with non group role!\n");
+    return -1;
+  }
+
+  int rc = 0;
+  zmq_msg_t msg;
+  int i;
+
+  if (strcmp(grp_role->s->name, at_rolename) == 0) { // Master role
+
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_UNSUBSCRIBE, "", 0);
+    if (rc != 0) perror(__FUNCTION__);
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_SUBSCRIBE, "S1", 2);
+    if (rc != 0) perror(__FUNCTION__);
+
+    // Wait for S1 (Phase 1) messages.
+    for (i=0; i<grp_role->grp->nendpoint; ++i) {
+      zmq_msg_init(&msg);
+      rc |= zmq_recv(grp_role->grp->in->ptr, &msg, 0);
+      if (rc != 0) perror(__FUNCTION__);
+      zmq_msg_close (&msg);
+    }
+
+    // Reset filters.
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_UNSUBSCRIBE, "S1", 2);
+    if (rc != 0) perror(__FUNCTION__);
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_SUBSCRIBE, "", 0);
+    if (rc != 0) perror(__FUNCTION__);
+
+    zmq_msg_init_size(&msg, 2);
+    memcpy(zmq_msg_data(&msg), "S2", 2);
+    rc |= zmq_send(grp_role->grp->out->ptr, &msg, 0);
+    if (rc != 0) perror(__FUNCTION__);
+    zmq_msg_close(&msg);
+
+    // Synchronised.
+
+  } else { // Slave role
+
+    // Send S1 (Phase 1) messages.
+    zmq_msg_init_size(&msg, 2);
+    memcpy(zmq_msg_data(&msg), "S1", 2);
+    rc |= zmq_send(grp_role->grp->out->ptr, &msg, 0);
+    if (rc != 0) perror(__FUNCTION__);
+    zmq_msg_close(&msg);
+
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_UNSUBSCRIBE, "", 0);
+    if (rc != 0) perror(__FUNCTION__);
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_SUBSCRIBE, "S2", 2);
+    if (rc != 0) perror(__FUNCTION__);
+
+    // Wait for S2 (Phase 2) messages.
+    zmq_msg_init(&msg);
+    rc |= zmq_recv(grp_role->grp->in->ptr, &msg, 0);
+    if (rc != 0) perror(__FUNCTION__);
+    zmq_msg_close(&msg);
+
+    // Reset filters.
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_UNSUBSCRIBE, "S2", 2);
+    if (rc != 0) perror(__FUNCTION__);
+    rc |= zmq_setsockopt(grp_role->grp->in->ptr, ZMQ_SUBSCRIBE, "", 0);
+    if (rc != 0) perror(__FUNCTION__);
+
+    // Synchronised.
+  }
 
   return rc;
 }
