@@ -23,9 +23,6 @@ LDFLAGS := -L$(LIB_DIR) -lsc -lzmq
 
 ifneq (,$(findstring debug,$(TARGET)))
 	CFLAGS += $(DEBUG)
-	BUILD_DIR := $(ROOT)/build/debug
-	BIN_DIR := $(ROOT)/bin/debug
-	_ := $(shell mkdir -p $(BUILD_DIR) $(BIN_DIR))
 else ifneq (,$(findstring prof,$(TARGET)))
 	CFLAGS += $(PROFILE)
 else
