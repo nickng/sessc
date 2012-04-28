@@ -200,7 +200,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 
     for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for matching connection parameter
 
-      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].to, sess->roles[role_idx]->p2p->name) == 0) { // As a client.
+      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].to, sess->roles[role_idx]->p2p->name) == 0 && strcmp(conns[conn_idx].from, sess->name) == 0) { // As a client.
         assert(strlen(conns[conn_idx].host) < 255 && conns[conn_idx].port < 65536);
         if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
           sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
@@ -219,7 +219,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
         break;
       }
 
-      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].from, sess->roles[role_idx]->p2p->name) == 0) { // As a server.
+      if ((CONNMGR_TYPE_P2P == conns[conn_idx].type) && strcmp(conns[conn_idx].from, sess->roles[role_idx]->p2p->name) == 0 && strcmp(conns[conn_idx].to, sess->name) == 0) { // As a server.
         assert(conns[conn_idx].port < 65536);
         if (strstr(conns[conn_idx].host, "ipc:") != NULL) {
           sprintf(sess->roles[role_idx]->p2p->uri, "ipc:///tmp/sessionc-%u", conns[conn_idx].port);
