@@ -27,6 +27,51 @@ st_tree *st_tree_init(st_tree *tree)
 }
 
 
+void st_tree_free(st_tree *tree)
+{
+  assert(tree != NULL);
+  free(tree->info);
+  st_node_free(tree->root);
+}
+
+
+void st_node_free(st_node *node)
+{
+  int i;
+  for (i=0; i<node->nchild; ++i) {
+    st_node_free(node->children[i]);
+  }
+  free(node->children);
+  node->nchild = 0;
+
+  switch (node->type) {
+    case ST_NODE_ROOT:
+      break;
+    case ST_NODE_SENDRECV:
+    case ST_NODE_SEND:
+    case ST_NODE_RECV:
+      free(node->interaction);
+      break;
+    case ST_NODE_PARALLEL:
+      break;
+    case ST_NODE_CHOICE:
+      free(node->choice);
+      break;
+    case ST_NODE_RECUR:
+      free(node->recur);
+      break;
+    case ST_NODE_CONTINUE:
+      free(node->recur);
+      break;
+    default:
+      fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
+      break;
+  }
+  
+  free(node);
+}
+
+
 st_tree *st_tree_set_name(st_tree *tree, const char *name)
 {
   assert(tree != NULL);

@@ -118,6 +118,22 @@ st_tree *st_tree_init(st_tree *tree);
 
 
 /**
+ * \brief Cleanup session type tree.
+ *
+ * @param[in,out] tree Tree to clean up.
+ */
+void st_tree_free(st_tree *tree);
+
+
+/**
+ * \brief Cleanup session type node (recursive).
+ *
+ * @param[in,out] node Node to clean up.
+ */
+void st_node_free(st_node *node);
+
+
+/**
  * \brief Set name of protocol.
  *
  * @param[in,out] tree Session type tree of protocol.

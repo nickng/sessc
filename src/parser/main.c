@@ -9,7 +9,7 @@
 
 #include "st_node.h"
 
-extern int yyparse();
+extern int yyparse(st_tree *tree);
 extern FILE *yyin;
 
 int main(int argc, char *argv[])
