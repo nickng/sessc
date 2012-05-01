@@ -274,7 +274,7 @@ local_interaction_blk       :   LBRACE local_interaction_seq RBRACE {
                             ;
 
 local_interaction_seq       :                                               {
-                                                                                $$ = (st_nodes *)malloc(sizeof(st_nodes));
+                                                                                $$ = memset((st_nodes *)malloc(sizeof(st_nodes)), 0, sizeof(st_nodes));
                                                                             }
                             |   local_interaction local_interaction_seq   {
                                                                                 $2->nodes = (st_node **)realloc($2->nodes, sizeof(st_node *) * ($2->count+1));
