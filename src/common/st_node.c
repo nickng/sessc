@@ -253,7 +253,7 @@ void st_node_print(const st_node *node, int indent)
         printf("Node { type: recv, from: %s, msgsig: { op: %s, payload: %s }}\n", node->interaction->from, node->interaction->msgsig.op, node->interaction->msgsig.payload);
         break;
       case ST_NODE_CHOICE:
-        printf("Node { type: choice }\n");
+        printf("Node { type: choice, at: %s } %d children \n", node->choice->at, node->nchild);
         break;
       case ST_NODE_PARALLEL:
         printf("Node { type: par }\n");
@@ -367,8 +367,10 @@ int st_node_compare(const st_node *node, const st_node *other)
         }
         break;
       case ST_NODE_CHOICE:
+        assert(0 /* compare CHOICE */);
         break;
       case ST_NODE_PARALLEL:
+        assert(0 /* compare PARALLEL */);
         break;
       case ST_NODE_RECUR:
         identical &= (0 == strcmp(node->recur->label, other->recur->label));
