@@ -1,6 +1,6 @@
 /**
  * \file
- * Thie file contains the tree representation of (multiparty) session
+ * This file contains the tree representation of (multiparty) session
  * according to the Scribble language specification and provides functions
  * to build and manipulate session type trees.
  * 
