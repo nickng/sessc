@@ -30,8 +30,10 @@ st_tree *st_tree_init(st_tree *tree)
 void st_tree_free(st_tree *tree)
 {
   assert(tree != NULL);
-  free(tree->info);
-  st_node_free(tree->root);
+  if (tree->info != NULL)
+    free(tree->info);
+  if (tree->root == NULL)
+    st_node_free(tree->root);
 }
 
 
