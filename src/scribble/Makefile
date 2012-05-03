@@ -8,11 +8,15 @@ include $(ROOT)/Common.mk
 OBJECTS = print.o project.o parser.o lexer.o st_node.o
 OBJS    = $(addprefix $(BUILD_DIR)/,$(OBJECTS))
 
-all: project
+all: project-tool scribble-tool
 
-project: main.c $(OBJS)
+project-tool: project-tool.c $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_DIR)/project \
-	  $(OBJS) main.c $(LD_FLAGS)
+	  $(OBJS) project-tool.c $(LD_FLAGS)
+
+scribble-tool: scribble-tool.c $(OBJS)
+	$(CC) $(CFLAGS) -o $(BIN_DIR)/scribble-tool \
+	  $(OBJS) scribble-tool.c $(LD_FLAGS)
 
 # Override runtime build rules (header files under scribble/)
 $(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/scribble/%.h

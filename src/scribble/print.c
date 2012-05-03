@@ -200,7 +200,7 @@ void scribble_fprint(FILE *stream, st_tree *tree)
       fprintf(stream, ", ");
     }
   }
-  fprintf(stream, ")");
+  fprintf(stream, ") ");
 
   scribble_fprint_root(stream, tree->root, 0);
 
