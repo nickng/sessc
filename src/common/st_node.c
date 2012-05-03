@@ -193,6 +193,9 @@ void st_tree_print(const st_tree *tree)
   if (tree->info != NULL) {
     printf("Protocol: %s\n", tree->info->name);
     printf("%s protocol\n", tree->info->global ? "Global" : "Endpoint");
+    if (!tree->info->global) {
+      printf("Endpoint role: %s\n", tree->info->myrole);
+    }
     printf("Imports: [\n");
     for (i=0; i<tree->info->nimport; ++i)
       printf("  { name: %s, as: %s, from: %s }\n", tree->info->imports[i]->name, tree->info->imports[i]->as, tree->info->imports[i]->from);
