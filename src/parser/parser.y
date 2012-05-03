@@ -105,15 +105,18 @@ type_decl_as                :            { $$ = NULL; }
 /* --------------------------- Message Signature --------------------------- */
 
 message_signature           :   message_operator message_payload {
-                                                                    msgsig.op = (char *)calloc(sizeof(char), strlen($1)+1);
-                                                                    strcpy(msgsig.op, $1);
+                                                                    if ($1 != NULL) {
+                                                                      msgsig.op = (char *)calloc(sizeof(char), strlen($1)+1);
+                                                                      strcpy(msgsig.op, $1);
+                                                                    }
                                                                     msgsig.payload = (char *)calloc(sizeof(char), strlen($2)+1);
                                                                     strcpy(msgsig.payload, $2);
                                                                     $$ = msgsig;
                                                                  }
                             ;
 
-message_operator            :   IDENT { $$ = $1; }
+message_operator            :         { $$ = NULL; }
+                            |   IDENT { $$ = $1; }
                             ;
 
 message_payload             :   LPAREN RPAREN       { $$ = ""; }
