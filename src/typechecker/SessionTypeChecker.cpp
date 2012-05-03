@@ -1,6 +1,6 @@
 /**
  * \file
- * Session Type Checker compoenent of Session C programming framework.
+ * Session Type Checker component of Session C programming framework.
  * This is implemented as a plugin for the LLVM/clang compiler.
  *
  */
