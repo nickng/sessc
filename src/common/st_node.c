@@ -1,6 +1,6 @@
 /**
  * \file
- * Thie file contains the tree representation of (multiparty) session
+ * This file contains the tree representation of (multiparty) session
  * according to the Scribble language specification and provides functions
  * to build and manipulate session type trees.
  * 
@@ -30,8 +30,10 @@ st_tree *st_tree_init(st_tree *tree)
 void st_tree_free(st_tree *tree)
 {
   assert(tree != NULL);
-  free(tree->info);
-  st_node_free(tree->root);
+  if (tree->info != NULL)
+    free(tree->info);
+  if (tree->root == NULL)
+    st_node_free(tree->root);
 }
 
 
@@ -191,6 +193,9 @@ void st_tree_print(const st_tree *tree)
   if (tree->info != NULL) {
     printf("Protocol: %s\n", tree->info->name);
     printf("%s protocol\n", tree->info->global ? "Global" : "Endpoint");
+    if (!tree->info->global) {
+      printf("Endpoint role: %s\n", tree->info->myrole);
+    }
     printf("Imports: [\n");
     for (i=0; i<tree->info->nimport; ++i)
       printf("  { name: %s, as: %s, from: %s }\n", tree->info->imports[i]->name, tree->info->imports[i]->as, tree->info->imports[i]->from);
@@ -251,7 +256,7 @@ void st_node_print(const st_node *node, int indent)
         printf("Node { type: recv, from: %s, msgsig: { op: %s, payload: %s }}\n", node->interaction->from, node->interaction->msgsig.op, node->interaction->msgsig.payload);
         break;
       case ST_NODE_CHOICE:
-        printf("Node { type: choice }\n");
+        printf("Node { type: choice, at: %s } %d children \n", node->choice->at, node->nchild);
         break;
       case ST_NODE_PARALLEL:
         printf("Node { type: par }\n");
@@ -365,8 +370,10 @@ int st_node_compare(const st_node *node, const st_node *other)
         }
         break;
       case ST_NODE_CHOICE:
+        assert(0 /* compare CHOICE */);
         break;
       case ST_NODE_PARALLEL:
+        assert(0 /* compare PARALLEL */);
         break;
       case ST_NODE_RECUR:
         identical &= (0 == strcmp(node->recur->label, other->recur->label));

@@ -105,15 +105,18 @@ type_decl_as                :            { $$ = NULL; }
 /* --------------------------- Message Signature --------------------------- */
 
 message_signature           :   message_operator message_payload {
-                                                                    msgsig.op = (char *)calloc(sizeof(char), strlen($1)+1);
-                                                                    strcpy(msgsig.op, $1);
+                                                                    if ($1 != NULL) {
+                                                                      msgsig.op = (char *)calloc(sizeof(char), strlen($1)+1);
+                                                                      strcpy(msgsig.op, $1);
+                                                                    }
                                                                     msgsig.payload = (char *)calloc(sizeof(char), strlen($2)+1);
                                                                     strcpy(msgsig.payload, $2);
                                                                     $$ = msgsig;
                                                                  }
                             ;
 
-message_operator            :   IDENT { $$ = $1; }
+message_operator            :         { $$ = NULL; }
+                            |   IDENT { $$ = $1; }
                             ;
 
 message_payload             :   LPAREN RPAREN       { $$ = ""; }
@@ -192,6 +195,14 @@ message                     :   message_signature FROM role_name TO role_name SE
 
 choice                      :   CHOICE AT role_name global_interaction_blk or_global_interaction_blk {
                                                                                                         node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CHOICE);
+                                                                                                        node->choice->at = (char *)calloc(sizeof(char), strlen($3)+1);
+                                                                                                        strcpy(node->choice->at, $3);
+                                                                                                        node->nchild = 1 + $5->nchild;
+                                                                                                        node->children = (st_node **)calloc(sizeof(st_node *), node->nchild);
+                                                                                                        node->children[0] = $4;
+                                                                                                        for (i=0; i<$5->nchild; ++i) {
+                                                                                                            node->children[1+i] = $5->children[i];
+                                                                                                        }
 
                                                                                                         $$ = node;
                                                                                                       }
