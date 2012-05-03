@@ -25,10 +25,6 @@ int main(int argc, char *argv[])
   char *project_role  = NULL;
   char *scribble_file = NULL;
 
-  if (argc < 2) {
-    show_usage = 1;
-  }
-
   while (1) {
     static struct option long_options[] = {
       {"project", required_argument, 0, 'p'},
@@ -77,6 +73,10 @@ int main(int argc, char *argv[])
   argv[optind-1] = argv[0];
   argv += optind-1;
 
+  if (argc < 2) {
+    show_usage |= 1;
+  }
+
   if (show_usage) {
     fprintf(stderr, "Usage: %s [--parse] [--project role] [--check] [-v] [-h] Scribble.spr\n", argv[0]);
     return EXIT_SUCCESS;
@@ -89,7 +89,10 @@ int main(int argc, char *argv[])
 
   scribble_file = argv[1];
   yyin = fopen(scribble_file, "r");
-  if (yyin == NULL) perror(scribble_file);
+  if (yyin == NULL) {
+    perror(scribble_file);
+    return EXIT_FAILURE;
+  }
 
   st_tree *tree = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
   if (0 != yyparse(tree)) {
