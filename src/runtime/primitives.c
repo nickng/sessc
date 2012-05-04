@@ -25,21 +25,43 @@ void _dealloc(void *data, void *hint)
 }
 
 
-inline int send_int(int val, role *r)
+inline int send_int(int val, role *r, const char *label)
 {
-  return send_int_array(&val, 1, r);
+  return send_int_array(&val, 1, r, label);
 }
 
 
-int send_int_array(const int arr[], size_t count, role *r)
+int send_int_array(const int arr[], size_t count, role *r, const char *label)
 {
   int rc = 0;
   zmq_msg_t msg;
   size_t size = sizeof(int) * count;
 
+
 #ifdef __DEBUG__
   fprintf(stderr, " --> %s ", __FUNCTION__);
 #endif
+
+  if (label != NULL) {
+#ifdef __DEBUG__
+    fprintf(stderr, "{label: %s}", label);
+#endif
+    zmq_msg_t msg_label;
+    char *buf_label = (char *)calloc(sizeof(char), strlen(label));
+    memcpy(buf_label, label, strlen(label));
+    zmq_msg_init_data(&msg_label, buf_label, strlen(label), _dealloc, NULL);
+    switch (r->type) {
+      case SESSION_ROLE_P2P:
+        rc = zmq_send(r->p2p->ptr, &msg_label, ZMQ_SNDMORE);
+        break;
+      case SESSION_ROLE_GRP:
+        rc = zmq_send(r->grp->out->ptr, &msg_label, ZMQ_SNDMORE);
+        break;
+    default:
+        fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
+    }
+    zmq_msg_close(&msg_label);
+  }
 
   int *buf = (int *)malloc(size);
   memcpy(buf, arr, size);
@@ -53,11 +75,10 @@ int send_int_array(const int arr[], size_t count, role *r)
 #ifdef __DEBUG__
       fprintf(stderr, "bcast -> %s(%d endpoints) ", r->grp->name, r->grp->nendpoint);
 #endif
-
       rc = zmq_send(r->grp->out->ptr, &msg, 0);
       break;
     default:
-        fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
+      fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
   }
   zmq_msg_close(&msg);
 
@@ -88,7 +109,7 @@ int vsend_int(int val, int nr_of_roles, ...)
 #ifdef __DEBUG__
     fprintf(stderr, "   +");
 #endif
-    rc |= send_int(val, r);
+    rc |= send_int(val, r, NULL);
     if (rc != 0) perror(__FUNCTION__);
   }
   va_end(roles);
@@ -97,6 +118,56 @@ int vsend_int(int val, int nr_of_roles, ...)
   fprintf(stderr, ".\n");
 #endif
 
+  return rc;
+}
+
+
+int recv_label(char **label, role *r)
+{
+  int rc = 0;
+  zmq_msg_t msg;
+  size_t size = -1;
+
+  // Label detection.
+  int64_t more;
+  size_t more_size = sizeof(more);
+
+#ifdef __DEBUG__
+  fprintf(stderr, " <-- %s() ", __FUNCTION__);
+#endif
+
+  zmq_msg_init(&msg);
+  switch (r->type) {
+    case SESSION_ROLE_P2P:
+      rc = zmq_recv(r->p2p->ptr, &msg, 0);
+      assert(rc == 0);
+      rc = zmq_getsockopt(r->p2p->ptr, ZMQ_RCVMORE, &more, &more_size);
+      assert(rc == 0);
+      break;
+    case SESSION_ROLE_GRP:
+#ifdef __DEBUG__
+      fprintf(stderr, "recv_label <- %s (%d endpoints) ", r->grp->name, r->grp->nendpoint);
+#endif
+      rc = zmq_recv(r->grp->in->ptr, &msg, 0);
+      assert(rc == 0);
+      rc = zmq_getsockopt(r->grp->in->ptr, ZMQ_RCVMORE, &more, &more_size);
+      assert(rc == 0);
+      break;
+    default:
+        fprintf(stderr, "%s: Unknown endpoint type: %d\n", __FUNCTION__, r->type);
+  }
+  size = zmq_msg_size(&msg);
+  *label = (char *)calloc(sizeof(char), size+1);
+  memcpy(*label, (char *)zmq_msg_data(&msg), size);
+  zmq_msg_close(&msg);
+
+  assert(more == 1); // Label has to be followed by a message
+
+  if (rc != 0) perror(__FUNCTION__);
+
+#ifdef __DEBUG__
+  fprintf(stderr, "[%s] .\n", *label);
+#endif
   return rc;
 }
 

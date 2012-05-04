@@ -13,13 +13,14 @@
 /**
  * \brief Send an integer.
  *
- * @param[in] val Value to send
- * @param[in] r   Role to send to
+ * @param[in] val   Value to send
+ * @param[in] r     Role to send to
+ * @param[in] label Message label (can be null)
  *
  * \returns 0 if successful, -1 otherwise and set errno
  *          (See man page of zmq_send)
  */
-int send_int(int val, role *r);
+int send_int(int val, role *r, const char *label);
 
 
 /**
@@ -28,11 +29,12 @@ int send_int(int val, role *r);
  * @param[in] val   Array to send
  * @param[in] count Number of elements in array
  * @param[in] r     Role to send to
+ * @param[in] label Message label (can be null)
  *
  * \returns 0 if successful, -1 otherwise and set errno
  *          (See man page of zmq_send)
  */
-int send_int_array(const int arr[], size_t count, role *r);
+int send_int_array(const int arr[], size_t count, role *r, const char *label);
 
 
 /**
@@ -47,6 +49,17 @@ int send_int_array(const int arr[], size_t count, role *r);
  *          (See man page of zmq_recv)
  */
 int vsend_int(int val, int nr_of_roles, ...);
+
+/**
+ * \brief Receive a message label.
+ *
+ * @param[out] label Variable to save message label to
+ * @param[in]  r     Role to receive from
+ *
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_recv)
+ */
+int recv_label(char **label, role *r);
 
 
 /**
