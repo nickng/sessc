@@ -122,7 +122,7 @@ int vsend_int(int val, int nr_of_roles, ...)
 }
 
 
-int recv_label(char **label, role *r)
+int probe_label(char **label, role *r)
 {
   int rc = 0;
   zmq_msg_t msg;

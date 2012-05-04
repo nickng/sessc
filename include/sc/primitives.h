@@ -59,7 +59,7 @@ int vsend_int(int val, int nr_of_roles, ...);
  * \returns 0 if successful, -1 otherwise and set errno
  *          (See man page of zmq_recv)
  */
-int recv_label(char **label, role *r);
+int probe_label(char **label, role *r);
 
 
 /**
