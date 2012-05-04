@@ -289,6 +289,7 @@ namespace {
             std::string func_name(callExpr->getDirectCallee()->getNameAsString());
             std::string datatype;
             std::string role;
+            std::string label;
 
             for (Stmt::child_iterator
                 iter = stmt->child_begin(), iter_end = stmt->child_end();
@@ -372,6 +373,35 @@ namespace {
 
               // Extract the role (second argument).
               role = get_rolename(callExpr->getArg(1));
+              Expr *labelExpr = callExpr->getArg(2);
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(labelExpr)) {
+                if (isa<ParenExpr>(ICE->getSubExpr())) {
+                  // NULL
+                  if (ParenExpr *PE = dyn_cast<ParenExpr>(ICE->getSubExpr())) {
+                    if (CStyleCastExpr *CCE = dyn_cast<CStyleCastExpr>(PE->getSubExpr())) {
+                      if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CCE->getSubExpr())) {
+                        if (IL->getValue() == 0) {
+                          label = "";
+                        }
+                      }
+                    }
+                  }
+                } else if (isa<IntegerLiteral>(ICE->getSubExpr())) {
+                  // 0
+                   if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(ICE->getSubExpr())) {
+                     if (IL->getValue() == 0) {
+                       label = "";
+                     }
+                   }
+                } else if (isa<ImplicitCastExpr>(ICE->getSubExpr())) {
+                  // String label
+                  if (ImplicitCastExpr *ICE2 = dyn_cast<ImplicitCastExpr>(ICE->getSubExpr())) {
+                    if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE2->getSubExpr())) {
+                      label = SL->getString();
+                    }
+                  }
+                }
+              }
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
               node->interaction->from = NULL;
@@ -379,7 +409,12 @@ namespace {
               node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
               node->interaction->to[0] = (char *)calloc(sizeof(char), role.size()+1);
               strcpy(node->interaction->to[0], role.c_str());
-              node->interaction->msgsig.op = NULL;
+              if (label.compare("") == 0) {
+                node->interaction->msgsig.op = NULL;
+              } else {
+                node->interaction->msgsig.op = (char *)calloc(sizeof(char), label.size()+1);
+                strcpy(node->interaction->msgsig.op, label.c_str());
+              }
               node->interaction->msgsig.payload = (char *)calloc(sizeof(char), datatype.size()+1);
               strcpy(node->interaction->msgsig.payload, datatype.c_str());
 
