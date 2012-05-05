@@ -569,6 +569,60 @@ namespace {
         } // isa<ContinueStmt>
 
 
+        // If statement.
+        if (isa<IfStmt>(stmt)) {
+          IfStmt *ifStmt = cast<IfStmt>(stmt);
+
+          st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CHOICE);
+
+          st_node *previous_node = appendto_node.top();
+          st_node_append(previous_node, node);
+          appendto_node.push(node);
+
+          // Then-block.
+          if (ifStmt->getThen() != NULL) {
+            st_node *then_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
+            st_node_append(node, then_node);
+            appendto_node.push(then_node);
+            BaseStmtVisitor::Visit(ifStmt->getThen());
+            appendto_node.pop();
+          }
+
+          // Else-block.
+          if (ifStmt->getElse() != NULL) {
+            st_node *else_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
+            st_node_append(node, else_node);
+            appendto_node.push(else_node);
+            BaseStmtVisitor::Visit(ifStmt->getElse());
+            appendto_node.pop();
+          }
+
+          appendto_node.pop();
+
+          node->choice->at = NULL;
+          for (int i=0; i<node->nchild; ++i) { // Children of choice = code blocks
+            for (int j=0; j<node->children[i]->nchild; ++i) { // Children of code blocks = body of then/else
+              if (node->children[i]->children[j]->type == ST_NODE_RECV) {
+                node->choice->at = (char *)calloc(sizeof(char), strlen(node->children[0]->children[i]->interaction->from)+1);
+                strcpy(node->choice->at, node->children[0]->children[i]->interaction->from);
+                break;
+              }
+              if (node->children[i]->children[j]->type == ST_NODE_SEND) {
+                node->choice->at = (char *)calloc(sizeof(char), strlen(tree_->info->myrole)+1);
+                strcpy(node->choice->at, tree_->info->myrole);
+                break;
+              }
+            }
+            if (node->choice->at != NULL) {
+              // Found choice role.
+              break;
+            }
+          }
+
+          return;
+        }
+
+
         // Child nodes.
 
         for (Stmt::child_iterator
