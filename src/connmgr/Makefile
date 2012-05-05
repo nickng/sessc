@@ -10,7 +10,6 @@ connmgr: main.c $(BUILD_DIR)/connmgr.o $(BUILD_DIR)/st_node.o $(BUILD_DIR)/parse
 		$(BUILD_DIR)/connmgr.o \
 		$(BUILD_DIR)/st_node.o \
 		$(BUILD_DIR)/parser.o \
-		$(BUILD_DIR)/lexer.o \
-		$(LDFLAGS)
+		$(BUILD_DIR)/lexer.o
 
 include $(ROOT)/Rules.mk

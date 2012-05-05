@@ -18,7 +18,7 @@ PROFILE := -g -pg
 
 CC      := gcc
 MPICC   := mpicc
-CFLAGS  := -Wall -I$(INCLUDE_DIR) -m64 -fPIC
+CFLAGS  := -Wall -I$(INCLUDE_DIR)
 LDFLAGS := -L$(LIB_DIR) -lsc -lzmq
 
 ifneq (,$(findstring debug,$(TARGET)))

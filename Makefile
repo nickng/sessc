@@ -14,8 +14,19 @@ include $(ROOT)/Common.mk
 
 .PHONY: docs
 
-all:
-	$(MAKE) --directory=$(SRC_DIR)
+all: tools runtime
+
+tools:
+	$(MAKE) --directory=$(SRC_DIR)/common
+	$(MAKE) --directory=$(SRC_DIR)/parser
+	$(MAKE) --directory=$(SRC_DIR)/scribble
+
+runtime:
+	$(MAKE) --directory=$(SRC_DIR)/common
+	$(MAKE) --directory=$(SRC_DIR)/parser
+	$(MAKE) --directory=$(SRC_DIR)/scribble
+	$(MAKE) --directory=$(SRC_DIR)/connmgr
+	$(MAKE) --directory=$(SRC_DIR)/runtime
 
 docs:
 	$(DOXYGEN) sessc.doxygen
