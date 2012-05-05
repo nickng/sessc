@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "st_node.h"
+#include "canonicalise.h"
 
 #include "scribble/project.h"
 #include "scribble/print.h"
@@ -103,6 +104,7 @@ int main(int argc, char *argv[])
   if (parse) {
     if (verbosity_level > 0) fprintf(stderr, "Parsed %s\n", scribble_file);
     if (verbosity_level > 1) st_tree_print(tree);
+    st_node_canonicalise(tree->root);
     scribble_print(tree);
   }
 
