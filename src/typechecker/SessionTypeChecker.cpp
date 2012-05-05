@@ -18,6 +18,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 
 #include "st_node.h"
+#include "canonicalise.h"
 
 extern "C" {
   extern int yyparse(st_tree *tree);
@@ -95,6 +96,8 @@ namespace {
         st_tree_print(scribble_tree_);
 
         llvm::outs() << "\nSource code Session Type\n";
+        st_node_refactor(tree_->root);
+        st_node_canonicalise(tree_->root);
         st_tree_print(tree_);
 
         st_tree_free(tree_);
