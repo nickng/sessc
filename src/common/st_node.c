@@ -43,7 +43,9 @@ void st_node_free(st_node *node)
   for (i=0; i<node->nchild; ++i) {
     st_node_free(node->children[i]);
   }
-  free(node->children);
+  if (node->nchild > 0) {
+    free(node->children);
+  }
   node->nchild = 0;
 
   switch (node->type) {
