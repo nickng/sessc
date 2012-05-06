@@ -24,7 +24,7 @@ SHARED_LIBRARY = 1
 
 include $(CLANG_LEVEL)/Makefile
 
-CXXFLAGS += -I$(SESSCC_INC_DIR) $(SESSCC_BUILD_DIR)/st_node.o $(SESSCC_BUILD_DIR)/parser.o $(SESSCC_BUILD_DIR)/lexer.o
+CXXFLAGS += -I$(SESSCC_INC_DIR) $(SESSCC_BUILD_DIR)/canonicalise.o $(SESSCC_BUILD_DIR)/st_node.o $(SESSCC_BUILD_DIR)/parser.o $(SESSCC_BUILD_DIR)/lexer.o
 
 
 ifeq ($(OS),Darwin)
