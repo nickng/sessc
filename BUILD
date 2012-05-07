@@ -29,4 +29,4 @@ $ cd $(LLVM_ROOT)/tools/clang/examples/SessionTypeChecker; make
 
 Then run the type checker as a clang plugin:
 
-$(LLVM_ROOT)/bin/clang -Xclang -load -Xclang $(LLVM_ROOT)/lib/libSessionTypeChecker.so -Xclang -add-plugin -Xclang sess-type-check $CFLAGS) source.c $(LDFLAGS)
+$(LLVM_ROOT)/bin/clang -Xclang -load -Xclang $(LLVM_ROOT)/lib/libSessionTypeChecker.so -Xclang -add-plugin -Xclang sess-type-check $(CFLAGS) source.c $(LDFLAGS)
