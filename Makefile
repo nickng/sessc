@@ -14,9 +14,9 @@ include $(ROOT)/Common.mk
 
 .PHONY: docs
 
-all: tools runtime
+all: scribble-tool runtime
 
-tools:
+scribble-tool:
 	$(MAKE) --directory=$(SRC_DIR)/common
 	$(MAKE) --directory=$(SRC_DIR)/parser
 	$(MAKE) --directory=$(SRC_DIR)/scribble

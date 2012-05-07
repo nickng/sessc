@@ -1,5 +1,0 @@
-sessc: Session C Programming framework
-
-Depends:
-    - lex/yacc or compatible tools for src/parser
-    - ZeroMQ 2.1 development headers and shared libraries
