@@ -26,7 +26,7 @@ int send_int(int val, role *r, const char *label);
 /**
  * \brief Send an integer.
  *
- * @param[in] val   Array to send
+ * @param[in] arr   Array to send
  * @param[in] count Number of elements in array
  * @param[in] r     Role to send to
  * @param[in] label Message label (can be null)
@@ -85,6 +85,56 @@ int recv_int(int *dst, role *r);
  *          (See man page of zmq_recv)
  */
 int recv_int_array(int *arr, size_t *count, role *r);
+
+
+/**
+ * \breif Broadcast an integer.
+ *
+ * @param[in] val   Value to send
+ * @param[in] s     Session to broadcast to
+ * 
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_send)
+ */
+int bcast_int(int val, session *s);
+
+
+/**
+ * \breif Broadcast an integer array.
+ *
+ * @param[in] arr   Array to send
+ * @param[in] count Number of elements in array
+ * @param[in] s     Session to broadcast to
+ * 
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_send)
+ */
+int bcast_int_array(const int arr[], size_t count, session *s);
+
+
+/**
+ * \brief Receive a broadcast integer.
+ *
+ * @param[out]    dst   Pointer to variable storing recevied value
+ * @param[in]     s     Session to receive broadcast from
+ *
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_send)
+ */
+int brecv_int(int *dst, session *s);
+
+
+/**
+ * \brief Receive a broadcast integer array (pre-allocated).
+ *
+ * @param[out]    arr   Pointer to array storing recevied value
+ * @param[in,out] count Pointer to variable storing number of elements in array
+ * @param[in]     s     Session to receive broadcast from
+ *
+ * \returns 0 if successful, -1 otherwise and set errno
+ *          (See man page of zmq_send)
+ */
+int brecv_int_array(int *arr, size_t *count, session *s);
 
 
 /**

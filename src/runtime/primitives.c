@@ -227,6 +227,31 @@ int recv_int_array(int *arr, size_t *count, role *r)
 }
 
 
+inline int bcast_int(int val, session *s)
+{
+  return send_int_array(&val, 1, s->r(s, "_Others"), NULL);
+}
+
+
+inline int bcast_int_array(const int arr[], size_t count, session *s)
+{
+  return send_int_array(arr, count, s->r(s, "_Others"), NULL);
+}
+
+
+inline int brecv_int(int *dst, session *s)
+{
+  size_t count;
+  return recv_int_array(dst, &count, s->r(s, "_Others"));
+}
+
+
+inline int brecv_int_array(int *arr, size_t *count, session *s)
+{
+  return recv_int_array(arr, count, s->r(s, "_Others"));
+}
+
+
 int barrier(role *grp_role, char *at_rolename)
 {
   if (grp_role->type != SESSION_ROLE_GRP) {
