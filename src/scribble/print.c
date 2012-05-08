@@ -4,13 +4,14 @@
  * in form of a Scribble protocol.
  *
  * \headerfile "st_node.h"
+ * \headerfile "scribble/print.h"
  */
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "st_node.h"
 
+#include "st_node.h"
 #include "scribble/print.h"
 
 
@@ -63,7 +64,7 @@ void scribble_fprint_message(FILE *stream, st_node *node, int indent)
       fprintf(stream, ", ");
     }
   }
-  fprintf(stream, ";\n");
+  fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
 
 
@@ -82,7 +83,7 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
       fprintf(stream, ", ");
     }
   }
-  fprintf(stream, ";\n");
+  fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
 
 
@@ -96,7 +97,7 @@ void scribble_fprint_recv(FILE *stream, st_node *node, int indent)
       node->interaction->msgsig.op == NULL? "" : node->interaction->msgsig.op,
       node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload,
       node->interaction->from);
-  fprintf(stream, ";\n");
+  fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
 
 
@@ -106,7 +107,7 @@ void scribble_fprint_choice(FILE *stream, st_node *node, int indent)
   assert(node != NULL && node->type == ST_NODE_CHOICE);
   for (i=0; i<indent; ++i) fprintf(stream, "  ");
 
-  fprintf(stream, "choice at %s ", node->choice->at);
+  fprintf(stream, "choice at %s %s", node->choice->at, node->marked ? "/* HERE */ " : "");
   for (i=0; i<node->nchild; ++i) {
     scribble_fprint_node(stream, node->children[i], indent);
     if (i != node->nchild-1) {
@@ -122,7 +123,7 @@ void scribble_fprint_parallel(FILE *stream, st_node *node, int indent)
   assert(node != NULL && node->type == ST_NODE_PARALLEL);
   for (i=0; i<indent; ++i) fprintf(stream, "  ");
 
-  fprintf(stream, "par ");
+  fprintf(stream, "par %s ", node->marked ? "/* HERE */" : "");
   for (i=0; i<node->nchild; ++i) {
     scribble_fprint_node(stream, node->children[i], indent);
     if (i != node->nchild-1) {
@@ -139,7 +140,7 @@ void scribble_fprint_recur(FILE *stream, st_node *node, int indent)
   int i;
   for (i=0; i<indent; ++i) fprintf(stream, "  ");
 
-  fprintf(stream, "rec %s {\n", node->recur->label);
+  fprintf(stream, "rec %s {%s\n", node->recur->label, node->marked ? " // <- HERE" : "");
   for (i=0; i<node->nchild; ++i) {
     scribble_fprint_node(stream, node->children[i], indent+1);
   }
@@ -155,7 +156,7 @@ void scribble_fprint_continue(FILE *stream, st_node *node, int indent)
   int i;
   for (i=0; i<indent; ++i) fprintf(stream, "  ");
 
-  fprintf(stream, "continue %s;\n", node->cont->label);
+  fprintf(stream, "continue %s;%s\n", node->cont->label, node->marked ? " // <- HERE" : "");
 }
 
 
@@ -163,7 +164,7 @@ void scribble_fprint_root(FILE *stream, st_node *node, int indent)
 {
   int i;
   assert(node != NULL && node->type == ST_NODE_ROOT);
-  fprintf(stream, "{\n");
+  fprintf(stream, "{%s\n", node->marked ? " // <- HERE" : "");
 
   for (i=0; i<node->nchild; ++i) {
     scribble_fprint_node(stream, node->children[i], indent+1);
