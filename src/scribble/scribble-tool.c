@@ -8,8 +8,9 @@
 #include "st_node.h"
 #include "canonicalise.h"
 
-#include "scribble/project.h"
+#include "scribble/check.h"
 #include "scribble/print.h"
+#include "scribble/project.h"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
@@ -110,6 +111,12 @@ int main(int argc, char *argv[])
 
   if (check) {
     if (verbosity_level > 0) fprintf(stderr, "Well-formedness check\n");
+    if (scribble_check(tree) != 0) {
+      fprintf(stderr, "Well-formedness checks failed! (see error messages above)\n");
+      if (verbosity_level > 1) st_tree_print(tree);
+      scribble_print(tree);
+    }
+    st_node_reset_markedflag(tree->root);
     assert(0 /* Well-formedness checks unimplemented */);
   }
 
