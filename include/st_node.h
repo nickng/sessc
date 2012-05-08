@@ -73,6 +73,7 @@ struct __st_node {
 
   int nchild;
   struct __st_node **children;
+  int marked;
 };
 
 
@@ -210,6 +211,13 @@ void st_node_print_r(const st_node *node, int indent);
  * @param[in] indent Indentation (number of spaces).
  */
 void st_node_print(const st_node *node, int indent);
+
+/**
+ * \brief Resets the 'marked' flag on a st_node for debugging purposes.
+ *
+ * @param[in] node Node to reset flag.
+ */
+void st_node_reset_markedflag(st_node *node);
 
 
 /**

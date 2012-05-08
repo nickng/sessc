@@ -238,7 +238,11 @@ void st_node_print(const st_node *node, int indent)
   int i;
 
   if (node != NULL) {
-    printf("%3d | ", indent);
+    if (node->marked) {
+      printf("%3d *>", indent);
+    } else {
+      printf("%3d | ", indent);
+    }
     for (i=indent; i>0; --i) printf("  ");
     switch (node->type) {
       case ST_NODE_ROOT:
@@ -273,6 +277,18 @@ void st_node_print(const st_node *node, int indent)
         fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
         break;
     }
+  }
+}
+
+
+void st_node_reset_markedflag(st_node *node)
+{
+  int i = 0;
+  assert(node != NULL);
+  node->marked = 0;
+
+  for (i=0; i<node->nchild; ++i) {
+    st_node_reset_markedflag(node->children[i]);
   }
 }
 
