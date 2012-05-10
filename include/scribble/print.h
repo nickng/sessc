@@ -10,6 +10,16 @@
 #include <stdio.h>
 #include "st_node.h"
 
+#ifdef COLOUR_SUPPORT
+  #define GREEN "\033[1;32m"
+  #define RED "\033[41m"
+  #define RESET "\033[0m"
+#else
+  #define GREEN ""
+  #define RED ""
+  #define RESET ""
+#endif
+
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
 void scribble_fprint_send(FILE *stream, st_node *node, int indent);
