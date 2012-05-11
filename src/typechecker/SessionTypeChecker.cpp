@@ -446,6 +446,40 @@ namespace {
             }
             // ---------- End of Receive/Recv ----------
 
+            // ---------- Receive label ----------
+            if (func_name.find("probe_label") != std::string::npos) {
+
+              llvm::outs() << func_name << "\n";
+
+              std::string payload("__LABEL__");
+
+              // Extract the role (second argument).
+              Expr *expr = callExpr->getArg(1);
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(expr)) {
+                if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+                  if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+                    role = VD->getNameAsString();
+                  }
+                }
+              }
+
+              st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+              node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
+              strcpy(node->interaction->from, role.c_str());
+              node->interaction->nto = 0;
+              node->interaction->to = NULL;
+              node->interaction->msgsig.op = NULL;
+              node->interaction->msgsig.payload = (char *)calloc(sizeof(char), payload.size()+1);
+              strcpy(node->interaction->msgsig.payload, payload.c_str());
+
+              // Put new ST node in position (ie. child of previous_node).
+              st_node * previous_node = appendto_node.top();
+              st_node_append(previous_node, node);
+
+              return; // end of ST_NODE_RECV construction.
+            }
+            // ---------- End of Receive label ----------
+
           } else {
             //
             // With the exception of role-extraction function, ignore all non-direct function calls.
