@@ -159,6 +159,7 @@ st_node *st_node_init(st_node *node, int type)
       break;
   }
   node->nchild = 0;
+  node->marked = 0;
 
   return node;
 }
