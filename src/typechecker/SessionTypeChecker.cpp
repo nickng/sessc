@@ -34,11 +34,17 @@ namespace {
       public ASTConsumer,
       public DeclVisitor<SessionTypeCheckingConsumer>,
       public StmtVisitor<SessionTypeCheckingConsumer> {
+  
+    protected:
+
+    typedef DeclVisitor<SessionTypeCheckingConsumer> BaseDeclVisitor;
+    typedef StmtVisitor<SessionTypeCheckingConsumer> BaseStmtVisitor;
 
     // AST-related fields.
     ASTContext    *context_;
     SourceManager *src_mgr_;
     TranslationUnitDecl *tu_decl_;
+    Decl          *current_decl_;
 
     // Local fields for building session type tree.
     st_tree *scribble_tree_;
@@ -46,14 +52,11 @@ namespace {
     std::stack< st_node * > appendto_node;
     std::map< std::string, std::string > varname2rolename;
 
-    int caseState, ifState;
-    int breakStmt_count, branch_count, outbranch_count, chain_count;
+    // Recursion counter.
     int recur_counter;
 
-    // Local variables for Visitors.
-    Decl *current_decl_;
-    typedef DeclVisitor<SessionTypeCheckingConsumer> BaseDeclVisitor;
-    typedef StmtVisitor<SessionTypeCheckingConsumer> BaseStmtVisitor;
+    int caseState, ifState;
+    int breakStmt_count, branch_count, outbranch_count, chain_count;
 
     public:
 
@@ -64,13 +67,6 @@ namespace {
 
         // Session Type tree root.
         tree_ = (st_tree *)malloc(sizeof(st_tree));
-
-        chain_count = 0;
-        caseState = 0;
-        ifState = 0;
-        breakStmt_count = 0;
-        branch_count = 0;
-        outbranch_count = 0;
 
         // Recursion label generation.
         recur_counter = 0;
@@ -105,15 +101,6 @@ namespace {
       }
 
       /* Auxiliary functions------------------------------------------------- */
-
-      // Add to branch counter if it is inside the IF statement block (including THEN and ELSE)
-      int addtoBranch_counter() {
-        if (ifState == 1) {
-          branch_count++;
-          return 1;
-        }
-        return 0;
-      }
 
       std::string get_rolename(Expr *expr) {
         std::string rolename("");
@@ -270,11 +257,6 @@ namespace {
       // Statement visitor.
       void VisitStmt(Stmt *stmt) {
 
-        // Break statement inside "switch-case".
-        if (isa<BreakStmt>(stmt) && caseState == 1) {
-            breakStmt_count++;
-        }
-
         // Function call statement.
         if (isa<CallExpr>(stmt)) { // FunctionCall
           CallExpr *callExpr = cast<CallExpr>(stmt);
@@ -369,8 +351,6 @@ namespace {
 
               llvm::outs() << func_name << "\n";
 
-              addtoBranch_counter();
-
               // Extract the datatype (last segment of function name).
               datatype = func_name.substr(func_name.find("_") + 1, std::string::npos);
 
@@ -434,8 +414,6 @@ namespace {
                 || func_name.find("recv_") != std::string::npos) { // Direct recv
 
               llvm::outs() << func_name << "\n";
-
-              addtoBranch_counter();
 
               // Extract the datatype (last segment of function name).
               datatype = func_name.substr(func_name.find("_") + 1,
@@ -501,6 +479,12 @@ namespace {
 
           BaseStmtVisitor::Visit(whileStmt->getBody());
 
+          // Implicit continue at end of loop.
+          st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
+          node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
+          strcpy(node_end->cont->label, loopLabel.c_str());
+          st_node_append(previous_node, node_end);
+
           appendto_node.pop();
 
           return;
@@ -522,6 +506,12 @@ namespace {
           appendto_node.push(node);
 
           BaseStmtVisitor::Visit(forStmt->getBody());
+
+          // Implicit continue at end of loop.
+          st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
+          node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
+          strcpy(node_end->cont->label, loopLabel.c_str());
+          st_node_append(previous_node, node_end);
 
           appendto_node.pop();
 
@@ -545,10 +535,16 @@ namespace {
 
           BaseStmtVisitor::Visit(doStmt->getBody());
 
+          // Implicit continue at end of loop.
+          st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
+          node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
+          strcpy(node_end->cont->label, loopLabel.c_str());
+          st_node_append(previous_node, node_end);
+
           appendto_node.pop();
 
           return;
-        } // isa<DoStmte>
+        } // isa<DoStmt>
 
 
         // Continue (within while-loop).
