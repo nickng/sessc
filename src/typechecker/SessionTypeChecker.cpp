@@ -73,6 +73,7 @@ namespace {
 
         st_tree_init(tree_);
         st_tree_set_name(tree_, "_");
+        tree_->info->myrole = strdup("__ROLE__");
 
       } // Initialise()
 
@@ -92,6 +93,7 @@ namespace {
         st_tree_print(scribble_tree_);
 
         llvm::outs() << "\nSource code Session Type\n";
+        st_tree_print(tree_);
         st_node_refactor(tree_->root);
         st_node_canonicalise(tree_->root);
         st_tree_print(tree_);
@@ -447,7 +449,7 @@ namespace {
             // ---------- End of Receive/Recv ----------
 
             // ---------- Receive label ----------
-            if (func_name.find("probe_label") != std::string::npos) {
+            if (func_name.compare("probe_label") == 0) {
 
               llvm::outs() << func_name << "\n";
 
@@ -479,7 +481,7 @@ namespace {
               return; // end of ST_NODE_RECV construction.
             }
             // ---------- End of Receive label ----------
-
+ 
           } else {
             //
             // With the exception of role-extraction function, ignore all non-direct function calls.
@@ -617,6 +619,41 @@ namespace {
             st_node *then_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
             st_node_append(node, then_node);
             appendto_node.push(then_node);
+
+            if (isa<CallExpr>(ifStmt->getCond())) {
+              if (CallExpr *CE = dyn_cast<CallExpr>(ifStmt->getCond())) {
+                if (CE->getDirectCallee()->getNameAsString().compare("has_label") == 0) {
+                  std::string payload("__LABEL__");
+                  std::string op;
+                  std::string role = "__LOCAL__";
+
+                  // Extract the label (second argument).
+                  if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                    if (ImplicitCastExpr *ICE2 = dyn_cast<ImplicitCastExpr>(ICE->getSubExpr())) {
+                      if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE2->getSubExpr())) {
+                        op = SL->getString();
+                      }
+                    }
+                  }
+
+                  // Append a dummy recv node
+                  st_node *label_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+                  label_node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
+                  strcpy(label_node->interaction->from, role.c_str());
+                  label_node->interaction->nto = 0;
+                  label_node->interaction->to = NULL;
+                  label_node->interaction->msgsig.op = (char *)calloc(sizeof(char), op.size()+1);
+                  strcpy(label_node->interaction->msgsig.op, op.c_str());
+                  label_node->interaction->msgsig.payload = (char *)calloc(sizeof(char), payload.size()+1);
+                  strcpy(label_node->interaction->msgsig.payload, payload.c_str());
+
+                  // Put new ST node in position (ie. child of previous_node).
+                  st_node_append(then_node, label_node);
+
+                }
+              }
+            }
+
             BaseStmtVisitor::Visit(ifStmt->getThen());
             appendto_node.pop();
           }
@@ -634,10 +671,14 @@ namespace {
 
           node->choice->at = NULL;
           for (int i=0; i<node->nchild; ++i) { // Children of choice = code blocks
-            for (int j=0; j<node->children[i]->nchild; ++i) { // Children of code blocks = body of then/else
+            for (int j=0; j<node->children[i]->nchild; ++j) { // Children of code blocks = body of then/else
               if (node->children[i]->children[j]->type == ST_NODE_RECV) {
-                node->choice->at = (char *)calloc(sizeof(char), strlen(node->children[0]->children[i]->interaction->from)+1);
-                strcpy(node->choice->at, node->children[0]->children[i]->interaction->from);
+                if (strcmp(node->children[i]->children[j]->interaction->from, "__LOCAL__") == 0) {
+                  continue;
+                }
+
+                node->choice->at = (char *)calloc(sizeof(char), strlen(node->children[i]->children[j]->interaction->from)+1);
+                strcpy(node->choice->at, node->children[i]->children[j]->interaction->from);
                 break;
               }
               if (node->children[i]->children[j]->type == ST_NODE_SEND) {
@@ -646,8 +687,9 @@ namespace {
                 break;
               }
             }
+
+            // If choice at role is found in one of the code blocks, stop search
             if (node->choice->at != NULL) {
-              // Found choice role.
               break;
             }
           }

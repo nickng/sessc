@@ -172,6 +172,12 @@ int probe_label(char **label, role *r)
 }
 
 
+inline int has_label(char *label, const char *_label)
+{
+  return (strcmp(label, _label) == 0);
+}
+
+
 inline int recv_int(int *dst, role *r)
 {
   size_t count;

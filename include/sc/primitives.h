@@ -62,6 +62,9 @@ int vsend_int(int val, int nr_of_roles, ...);
 int probe_label(char **label, role *r);
 
 
+int has_label(char *label, const char *_label);
+
+
 /**
  * \brief Receive an integer (pre-allocated).
  *

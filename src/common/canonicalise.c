@@ -69,7 +69,7 @@ st_node *st_node_singleton_leaf_upmerge(st_node *node)
     if (node->nchild == 1 && node->children[0]->type == ST_NODE_ROOT) {
       node->type = ST_NODE_ROOT;
       node->nchild = node->children[0]->nchild;
-      node->children = (st_node **)realloc(node->children, sizeof(st_node *) * (node->nchild));
+      node->children = (st_node **)realloc(node->children, sizeof(st_node *) * node->nchild);
       st_node *oldchild = node->children[0];
       for (i=0; i<node->nchild; ++i) {
         node->children[i] = oldchild->children[i];
@@ -116,6 +116,43 @@ st_node *st_node_empty_leaf_remove(st_node *node)
 
 
 /**
+ * Remove duplicated continue for the same loop.
+ */
+st_node *st_node_recur_remove_dup_continue(st_node *node)
+{
+  int i, j, k;
+  for (i=0; i<node->nchild; ++i) {
+    node->children[i] = st_node_recur_remove_dup_continue(node->children[i]);
+  }
+
+  if (node->type == ST_NODE_RECUR && node->nchild > 0) {
+    for (i=0; i<node->nchild; ++i) {
+      if (node->children[i]->type == ST_NODE_CONTINUE) {
+        for (j=i+1; j<node->nchild; ++j) {
+          if (node->children[j]->type == ST_NODE_CONTINUE
+              && strcmp(node->children[i]->cont->label, node->children[j]->cont->label) == 0) {
+            // Remove the node
+            st_node_free(node->children[j]);
+            // Shift nodes up by one
+            for (k=j; k<node->nchild-1; ++k) {
+              node->children[k] = node->children[k+1];
+            }
+            st_node_free(node->children[node->nchild-1]);
+            node->nchild--;
+            node->children = (st_node **)realloc(node->children, sizeof(st_node *) * node->nchild);
+          } else {
+            break; // j-loop
+          }
+        }
+      }
+    }
+  }
+
+  return node;
+}
+
+
+/**
  * Create canonicalised version of st_node.
  * (1) Remove redundant continue calls inside
  *     if the only operation in a recur block is continue.
@@ -131,28 +168,80 @@ st_node *st_node_canonicalise(st_node *node)
   node = st_node_singleton_leaf_upmerge(node);
   node = st_node_empty_leaf_remove(node);
   node = st_node_singleton_leaf_upmerge(node);
+  node = st_node_recur_remove_dup_continue(node);
   return node;
 }
 
 
 /**
- * Add implicit 'continue' at end of rec-loop,
- * converting ordinary looping code to recursion style.
+ * Combines label comparison with the next receive.
  */
-st_node *st_node_recur_add_implicit_continue(st_node *node)
+st_node *st_node_label_recv_merge(st_node *node)
 {
-  int i;
-  for (i=0; i<node->nchild; ++i) {
-    node->children[i] = st_node_recur_add_implicit_continue(node->children[i]);
+  int i, j, k;
+
+  printf("Applying %s for: ", __FUNCTION__); st_node_print(node, 0);
+
+  assert(node->type == ST_NODE_CHOICE);
+
+  for (k=0; k<node->nchild; ++k) { // Work on each code-block of choice
+
+    assert(node->children[k]->type == ST_NODE_ROOT);
+    printf(" --> \n");
+    st_node_print_r(node->children[k], 3);
+
+    for (i=0; i<node->children[k]->nchild-1; ++i) {
+      // If recv(__LOCAL__, (label)__LABEL__), ie. label comparison
+      if (node->children[k]->children[i]->type == ST_NODE_RECV
+          && strcmp(node->children[k]->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
+          && strcmp(node->children[k]->children[i]->interaction->from, "__LOCAL__") == 0) {
+        if (node->children[k]->children[i+1]->type == ST_NODE_RECV && node->children[k]->children[i+1]->interaction->msgsig.op == NULL) {
+          node->children[k]->children[i+1]->interaction->msgsig.op = (char *)calloc(sizeof(char), strlen(node->children[k]->children[i]->interaction->msgsig.op)+1);
+          strcpy(node->children[k]->children[i+1]->interaction->msgsig.op, node->children[k]->children[i]->interaction->msgsig.op);
+
+          st_node_free(node->children[k]->children[i]);
+          for (j=i; j<node->children[k]->nchild-1; ++j) {
+            node->children[k]->children[j] = node->children[k]->children[j+1];
+          }
+          node->children[k]->nchild--;
+          node->children[k]->children = (st_node **)realloc(node->children[k]->children, sizeof(st_node *) * node->children[k]->nchild);
+        }
+      }
+    }
+
   }
 
-  if (node->type == ST_NODE_RECUR && node->nchild > 0) {
-    if (node->children[node->nchild-1]->type != ST_NODE_CONTINUE) {
-      st_node *child = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
-      child->cont->label = (char *)calloc(sizeof(char), strlen(node->recur->label)+1);
-      strcpy(child->cont->label, node->recur->label);
-      st_node_append(node, child);
+  return node;
+}
+
+
+/**
+ * Search for label probe and apply label-recv merging.
+ */
+st_node *st_node_label_recv(st_node *node)
+{
+  int i, j;
+
+  for (i=0; i<node->nchild-1; ++i) {
+    // If children[i] = recv(R, __LABEL__) and children[i+1] = choice@R
+    if (node->children[i]->type == ST_NODE_RECV
+        && strcmp(node->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
+        && node->children[i+1]->type == ST_NODE_CHOICE
+        && strcmp(node->children[i]->interaction->from, node->children[i+1]->choice->at) == 0) {
+      // Apply label-recv merging on children[i+1]
+      st_node_free(node->children[i]);
+      node->children[i] = st_node_label_recv_merge(node->children[i+1]);
+      // Move children up by 1 (removed receive label node)
+      for (j=i+1; j<node->nchild-1; ++j) {
+        node->children[j] = node->children[j+1];
+      }
+      node->nchild--;
+      node->children = (st_node **)realloc(node->children, sizeof(st_node *) * node->nchild);
     }
+  }
+
+  for (i=0; i<node->nchild; ++i) {
+    st_node_label_recv(node->children[i]);
   }
 
   return node;
@@ -189,22 +278,19 @@ st_node *st_node_choice_realign(st_node *node)
   return node;
 }
 
-
 /**
  * Refactor the st_node.
  * Note that most of the operations here are very AST-specific,
  * using this on arbitrary Scribble protocol may change its meaning!
- * (1) Add implicit 'continue' at end of rec-loop,
- *     converting ordinary looping code to recursion style.
- * (2) Realign nested choice blocks
+ * (1) Realign nested choice blocks
  *     obtained by if-then-else-if structure.
  */
 st_node *st_node_refactor(st_node *node)
 {
-  // While loops.
-  node = st_node_recur_add_implicit_continue(node);
-  // If-then-else-if.
+  // If-then-else-if, choice role assignments after we remove dummy recv __LOCAL__ nodes.
   node = st_node_choice_realign(node);
+  // Labels comparison -> label of next receive
+  node = st_node_label_recv(node);
   // Remove empty leaf (choice)
   node = st_node_empty_leaf_remove(node);
   return node;
