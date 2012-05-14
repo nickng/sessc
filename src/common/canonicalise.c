@@ -180,31 +180,29 @@ st_node *st_node_label_recv_merge(st_node *node)
 {
   int i, j, k;
 
-  printf("Applying %s for: ", __FUNCTION__); st_node_print(node, 0);
-
   assert(node->type == ST_NODE_CHOICE);
 
   for (k=0; k<node->nchild; ++k) { // Work on each code-block of choice
 
-    assert(node->children[k]->type == ST_NODE_ROOT);
-    printf(" --> \n");
-    st_node_print_r(node->children[k], 3);
+    st_node *_choice = node->children[k];
 
-    for (i=0; i<node->children[k]->nchild-1; ++i) {
+    assert(_choice->type == ST_NODE_ROOT);
+
+    for (i=0; i<_choice->nchild-1; ++i) {
       // If recv(__LOCAL__, (label)__LABEL__), ie. label comparison
-      if (node->children[k]->children[i]->type == ST_NODE_RECV
-          && strcmp(node->children[k]->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
-          && strcmp(node->children[k]->children[i]->interaction->from, "__LOCAL__") == 0) {
-        if (node->children[k]->children[i+1]->type == ST_NODE_RECV && node->children[k]->children[i+1]->interaction->msgsig.op == NULL) {
-          node->children[k]->children[i+1]->interaction->msgsig.op = (char *)calloc(sizeof(char), strlen(node->children[k]->children[i]->interaction->msgsig.op)+1);
-          strcpy(node->children[k]->children[i+1]->interaction->msgsig.op, node->children[k]->children[i]->interaction->msgsig.op);
+      if (_choice->children[i]->type == ST_NODE_RECV
+          && strcmp(_choice->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
+          && strcmp(_choice->children[i]->interaction->from, "__LOCAL__") == 0) {
+        if (_choice->children[i+1]->type == ST_NODE_RECV && _choice->children[i+1]->interaction->msgsig.op == NULL) {
+          _choice->children[i+1]->interaction->msgsig.op = (char *)calloc(sizeof(char), strlen(_choice->children[i]->interaction->msgsig.op)+1);
+          strcpy(_choice->children[i+1]->interaction->msgsig.op, _choice->children[i]->interaction->msgsig.op);
 
-          st_node_free(node->children[k]->children[i]);
-          for (j=i; j<node->children[k]->nchild-1; ++j) {
-            node->children[k]->children[j] = node->children[k]->children[j+1];
+          st_node_free(_choice->children[i]);
+          for (j=i; j<_choice->nchild-1; ++j) {
+            _choice->children[j] = _choice->children[j+1];
           }
-          node->children[k]->nchild--;
-          node->children[k]->children = (st_node **)realloc(node->children[k]->children, sizeof(st_node *) * node->children[k]->nchild);
+          _choice->nchild--;
+          _choice->children = (st_node **)realloc(_choice->children, sizeof(st_node *) * _choice->nchild);
         }
       }
     }
