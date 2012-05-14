@@ -308,6 +308,9 @@ int st_node_compare_async(const st_node *node, const st_node *other)
   if (node->type != ST_NODE_RECUR || other->type != ST_NODE_RECUR)
     return 0;
 
+  if (node->nchild != other->nchild)
+    return 0;
+
   for (i=0; i<node->nchild; ++i) {
     visited[i] = 0;
   }
@@ -338,7 +341,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
       // - Look for matching receive
       // - Allow send in same channel (to overtake)
       // - Stop at non-matching receive in same channel or end of search range
-      for (j=i; j<search_to; ++j) {
+      for (j=search_from; j<search_to; ++j) {
 
         // Case 0: This node has been matched previously.
         if (visited[j] == 1) {
@@ -349,13 +352,15 @@ int st_node_compare_async(const st_node *node, const st_node *other)
         if (visited[j] == 0
             && ST_NODE_RECV == other->children[j]->type // Recv node
             && 0 == strcmp(node->children[i]->interaction->from, other->children[j]->interaction->from)) { // same role (ie. channel)
-          if (st_node_msgsig_compare(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
+          if (st_node_compare_msgsig(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
             // Matching SEND node
             visited[j] = 1;
             identical &= 1;
             break;
           } else {
             // Don't allow RECV-RECV overtake in same channel
+            node->children[i]->marked = 1;
+            other->children[j]->marked = 1;
             identical = 0;
             break;
           }
@@ -374,6 +379,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
 
       // No matching node found
       if (j == search_to) {
+        node->children[i]->marked = 1;
         identical = 0;
       }
 
@@ -381,7 +387,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
       // - Look for matching send
       // - Allow send in the same channel (to overtake)
       // - Stop at receive in the same channel or end of search range
-      for (j=i; j<search_to; ++j) {
+      for (j=search_from; j<search_to; ++j) {
 
         // Case 0: This node has been matched previously.
         if (visited[j] == 1) {
@@ -393,13 +399,15 @@ int st_node_compare_async(const st_node *node, const st_node *other)
             && ST_NODE_SEND == other->children[j]->type
             && 0 == strcmp(node->children[i]->interaction->to[0], other->children[j]->interaction->to[0])) { // same role (ie. channel)
           // TODO: check all to-targets
-          if (st_node_msgsig_compare(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
+          if (st_node_compare_msgsig(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
             // Matching SEND node
             visited[j] = 1;
             identical &= 1;
             break;
           } else {
             // Don't allow SEND-SEND overtake in same channel
+            node->children[i]->marked = 1;
+            other->children[j]->marked = 1;
             identical = 0;
             break;
           }
@@ -410,6 +418,8 @@ int st_node_compare_async(const st_node *node, const st_node *other)
             && ST_NODE_RECV == other->children[j]->type
             && 0 == strcmp(node->children[i]->interaction->to[0], other->children[j]->interaction->from)) {
           // Don't allow RECV-SEND overtake in the same channel
+          node->children[i]->marked = 1;
+          other->children[j]->marked = 1;
           identical = 0;
           break;
         }
@@ -418,6 +428,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
 
       // No matching node found
       if (j == search_to) {
+        node->children[i]->marked = 1;
         identical = 0;
       }
 
@@ -433,34 +444,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
 }
 
 
-int st_node_compare_r_error(const st_node *node, const st_node *other, int indent)
-{
-  int identical = 1;
-
-  if (node != NULL && other != NULL) {
-    if (st_node_compare_r(node, other)) { // Identical.
-      st_node_print_r(node, indent);
-    } else if (st_node_compare(node, other)) { // Not reached diversion point.
-      st_node_print(node, indent);
-      int i;
-      for (i=0; i<node->nchild; ++i) {
-        identical &= st_node_compare_r_error(node->children[i], other->children[i], indent+1);
-      }
-    } else { // Diversion point.
-      identical = 0;
-      printf("**ERR**");
-      st_node_print_r(node, indent);
-      printf("--------------------\n");
-      st_node_print_r(other, indent);
-
-    }
-  }
-
-  return identical;
-}
-
-
-int st_node_compare_r(const st_node *node, const st_node *other)
+int st_node_compare_r(st_node *node, st_node *other)
 {
   int identical = 1;
   int i;
@@ -471,8 +455,10 @@ int st_node_compare_r(const st_node *node, const st_node *other)
     if (node->type == ST_NODE_RECUR) {
       identical &= st_node_compare_async(node, other);
     } else {
-      for (i=0; i<node->nchild; ++i) {
-        identical &= st_node_compare(node->children[i], other->children[i]);
+      if (identical) {
+        for (i=0; i<node->nchild; ++i) {
+          identical &= st_node_compare_r(node->children[i], other->children[i]);
+        }
       }
     }
   }
@@ -481,73 +467,84 @@ int st_node_compare_r(const st_node *node, const st_node *other)
 }
 
 
-int st_node_msgsig_compare(const st_node_msgsig_t msgsig, const st_node_msgsig_t other)
+int st_node_compare_msgsig(const st_node_msgsig_t msgsig, const st_node_msgsig_t other)
 {
-  return (0 == strcmp(msgsig.op, other.op) && (0 == strcmp(msgsig.payload, other.payload)));
+  return ( ((msgsig.op == NULL && other.op == NULL) || 0 == strcmp(msgsig.op, other.op))
+           && (0 == strcmp(msgsig.payload, other.payload)) );
 }
 
 
-int st_node_compare(const st_node *node, const st_node *other)
+int st_node_compare(st_node *node, st_node *other)
 {
   int identical = 1;
   if (node != NULL && other != NULL) {
     identical = (node->type == other->type && node->nchild == other->nchild);
 
-    switch (node->type) {
-      case ST_NODE_ROOT:
-        break;
-      case ST_NODE_SENDRECV:
-        identical &= st_node_msgsig_compare(node->interaction->msgsig, other->interaction->msgsig);
-        identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
-        identical &= (node->interaction->nto == other->interaction->nto);
+    if (identical) {
 
-        if (identical) {
-          int i;
-          for (i=0; i<node->interaction->nto; ++i) {
-            identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
-          }
-        }
-        break;
-      case ST_NODE_SEND:
-        identical &= st_node_msgsig_compare(node->interaction->msgsig, other->interaction->msgsig);
-        identical &= (node->interaction->nto == other->interaction->nto);
+        switch (node->type) {
+        case ST_NODE_ROOT:
+            break;
+        case ST_NODE_SENDRECV:
+            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+            identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
+            identical &= (node->interaction->nto == other->interaction->nto);
 
-        if (identical) {
-          int i;
-          for (i=0; i<node->interaction->nto; ++i) {
-            identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
-          }
-        }
-        break;
-      case ST_NODE_RECV:
-        identical &= st_node_msgsig_compare(node->interaction->msgsig, other->interaction->msgsig);
-        identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
-        identical &= (node->interaction->nto == other->interaction->nto);
+            if (identical) {
+              int i;
+              for (i=0; i<node->interaction->nto; ++i) {
+                identical &= (0 == strcmp(node->interaction->to[i], other->interaction->to[i]));
+              }
+            }
+            break;
+        case ST_NODE_SEND:
+            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+            identical &= (node->interaction->nto == other->interaction->nto);
 
-        if (identical) {
-          int i;
-          for (i=0; i<node->interaction->nto; ++i) {
-            identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
-          }
-        }
-        break;
-      case ST_NODE_CHOICE:
-        identical &= (0 == strcmp(node->choice->at, other->choice->at));
-        break;
-      case ST_NODE_PARALLEL:
-        break;
-      case ST_NODE_RECUR:
-        // The label might be different: source code recursion label are generated
-        // identical &= (0 == strcmp(node->recur->label, other->recur->label));
-        break;
-      case ST_NODE_CONTINUE:
-        // The label might be different: source code continue label are generated
-        // identical &= (0 == strcmp(node->cont->label, other->cont->label));
-        break;
-      default:
-        fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
-        break;
+            if (identical) {
+            int i;
+            for (i=0; i<node->interaction->nto; ++i) {
+                identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
+            }
+            }
+            break;
+        case ST_NODE_RECV:
+            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+            identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
+            identical &= (node->interaction->nto == other->interaction->nto);
+
+            if (identical) {
+            int i;
+            for (i=0; i<node->interaction->nto; ++i) {
+                identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
+            }
+            }
+            break;
+        case ST_NODE_CHOICE:
+            identical &= (0 == strcmp(node->choice->at, other->choice->at));
+            break;
+        case ST_NODE_PARALLEL:
+            break;
+        case ST_NODE_RECUR:
+            // The label might be different: source code recursion label are generated
+            // identical &= (0 == strcmp(node->recur->label, other->recur->label));
+            break;
+        case ST_NODE_CONTINUE:
+            // The label might be different: source code continue label are generated
+            // identical &= (0 == strcmp(node->cont->label, other->cont->label));
+            break;
+        default:
+            fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
+            break;
+      }
+
+    } // if identical
+
+    if (!identical) {
+      node->marked = 1;
+      other->marked = 1;
     }
+
   }
 
   return identical;

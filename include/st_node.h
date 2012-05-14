@@ -221,26 +221,15 @@ void st_node_reset_markedflag(st_node *node);
 
 
 /**
- * \brief Compare two st_nodes and print out tree (with annotated error).
- *
- * @param[in] node  Node to compare.
- * @param[in] other Node to compare.
- * @param[in] indent
- *
- * \returns 1 if identical, 0 otherwise.
- */
-int st_node_compare_r_error(const st_node *node, const st_node *other, int indent);
-
-
-/**
  * \brief Compare two st_nodes recursively.
+ * Errors will be marked on node->marked.
  *
- * @param[in] node  Node to compare.
- * @param[in] other Node to compare.
+ * @param[in,out] node  Node (scribble) to compare.
+ * @param[in,out] other Node (source code) to compare.
  *
  * \returns 1 if identical, 0 otherwise.
  */
-int st_node_compare_r(const st_node *node, const st_node *other);
+int st_node_compare_r(st_node *node, st_node *other);
 
 
 /**
@@ -251,18 +240,18 @@ int st_node_compare_r(const st_node *node, const st_node *other);
  *
  * \returns 1 if identical, 0 otherwise.
  */
-int st_node_msgsig_compare(const st_node_msgsig_t msgsig, const st_node_msgsig_t other);
+int st_node_compare_msgsig(const st_node_msgsig_t msgsig, const st_node_msgsig_t other);
 
 
 /**
  * \brief Compare two st_nodes.
  *
- * @param[in] node  Node to compare.
- * @param[in] other Node to compare.
+ * @param[in] node  Node (scribble) to compare.
+ * @param[in] other Node (source code) to compare.
  *
  * \returns 1 if identical, 0 otherwise.
  */
-int st_node_compare(const st_node *node, const st_node *other);
+int st_node_compare(st_node *node, st_node *other);
 
 
 #ifdef __cplusplus

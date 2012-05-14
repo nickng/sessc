@@ -89,14 +89,33 @@ namespace {
           BaseDeclVisitor::Visit(decl);
         }
 
-        llvm::outs() << "\nScribble Protocol " << scribble_tree_->info->name << " at " <<  scribble_tree_->info->myrole << "\n";
-        st_tree_print(scribble_tree_);
+        // Scribble protocol.
+        st_node_canonicalise(scribble_tree_->root);
 
-        llvm::outs() << "\nSource code Session Type\n";
-        st_tree_print(tree_);
+        // Source code.
         st_node_refactor(tree_->root);
         st_node_canonicalise(tree_->root);
-        st_tree_print(tree_);
+
+        unsigned diagId;
+        // Do type checking (comparison)
+        st_node_reset_markedflag(tree_->root);
+        st_node_reset_markedflag(scribble_tree_->root);
+        if (st_node_compare_r(scribble_tree_->root, tree_->root)) {
+          diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Note, "Type checking successful");
+          llvm::outs() << "Type checking successful\n";
+        } else {
+          diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Type checking failed, see above for error location");
+
+          // Show the error
+          llvm::errs() << "********** Scribble tree: **********";
+          st_tree_print(scribble_tree_);
+          llvm::errs() << "********** Source code tree: **********";
+          st_tree_print(tree_);
+        }
+
+        SourceLocation SL = tu_decl->getLocation();
+        context_->getDiagnostics().Report(SL, diagId);
+
 
         st_tree_free(tree_);
         st_tree_free(scribble_tree_);
@@ -299,8 +318,6 @@ namespace {
             // ---------- Initialisation ----------
             if (func_name.find("session_init") != std::string::npos) {
 
-              llvm::outs() << func_name << "\n";
-
               Expr *value = callExpr->getArg(3); // Scribble endpoint
               std::string scribble_filepath;
 
@@ -336,8 +353,6 @@ namespace {
 
             if (func_name.find("session_end") != std::string::npos) {
 
-              llvm::outs() << func_name << "\n";
-
               return;
             }
 
@@ -350,8 +365,6 @@ namespace {
 
             // ---------- Send ----------
             if (func_name.find("send_") != std::string::npos) {
-
-              llvm::outs() << func_name << "\n";
 
               // Extract the datatype (last segment of function name).
               datatype = func_name.substr(func_name.find("_") + 1, std::string::npos);
@@ -415,21 +428,12 @@ namespace {
             if (func_name.find("receive_") != std::string::npos  // Indirect recv
                 || func_name.find("recv_") != std::string::npos) { // Direct recv
 
-              llvm::outs() << func_name << "\n";
-
               // Extract the datatype (last segment of function name).
               datatype = func_name.substr(func_name.find("_") + 1,
                                           std::string::npos);
 
               // Extract the role (second argument).
-              Expr *expr = callExpr->getArg(1);
-              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(expr)) {
-                if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
-                  if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-                    role = VD->getNameAsString();
-                  }
-                }
-              }
+              role = get_rolename(callExpr->getArg(1));
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
               node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
@@ -450,8 +454,6 @@ namespace {
 
             // ---------- Receive label ----------
             if (func_name.compare("probe_label") == 0) {
-
-              llvm::outs() << func_name << "\n";
 
               std::string payload("__LABEL__");
 
@@ -519,7 +521,7 @@ namespace {
           st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
           node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
           strcpy(node_end->cont->label, loopLabel.c_str());
-          st_node_append(previous_node, node_end);
+          st_node_append(node, node_end);
 
           appendto_node.pop();
 
