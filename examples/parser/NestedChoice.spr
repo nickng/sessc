@@ -1,0 +1,33 @@
+/* A Global protocol with complicated nester choice  as well as empty blocks */
+global protocol
+    P
+(role R1, role R2)
+{
+    par {
+        label(int) from X to Y;
+        choice at R1 {
+            choice at R1 {
+                r1() from R1 to R2;
+                choice at R1 {
+                    r2(int) from R1 to R2;
+                } or {
+                    choice at R1 {
+                        r3() from R1 to R2;
+                    } or {
+                    }
+                } or {
+                    r4() from R1 to R2;
+                }
+            } or {
+                r5() from R1 to R2;
+                (int) from R2 to R1;
+            }
+        } or {
+            choice at R2 {
+                r2() from R2 to R1;
+            }
+            r9() from R1 to R2;
+        }
+    } and {
+    }
+}
