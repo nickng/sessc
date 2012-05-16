@@ -25,6 +25,7 @@ mlcomment_start         "/*"
 mlcomment_body          ([^*])|("*"[^/])|{string}
 mlcomment_end           "*/"
 mlcomment               {mlcomment_start}{mlcomment_body}*{mlcomment_end}
+comment                 "//"([^\n])*\n
 
 %%
 
@@ -61,6 +62,7 @@ mlcomment               {mlcomment_start}{mlcomment_body}*{mlcomment_end}
 {identifier}            { yylval.str = strdup(yytext);
                           DEBUG_PRINT("Token: IDENT '%s'\n");     return IDENT;    }
 {mlcomment}             { DEBUG_PRINT("Token: COMMENT '%s'\n");                    }
+{comment}               { DEBUG_PRINT("Token: COMMENT '%s'\n");                    }
 
     /* Catch all */
 .                       { fprintf(stderr, "lexer: Don't know what is '%s'\n", yytext); yyterminate(); }
