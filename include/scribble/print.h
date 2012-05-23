@@ -10,15 +10,15 @@
 #include <stdio.h>
 #include "st_node.h"
 
-#ifdef COLOUR_SUPPORT
-  #define GREEN "\033[1;32m"
-  #define RED "\033[41m"
-  #define RESET "\033[0m"
-#else
-  #define GREEN ""
-  #define RED ""
-  #define RESET ""
-#endif
+/**
+ * \brief Set whether scribble pretty printer uses colour.
+ *
+ * @param[in] colour_mode Colour mode to be set.
+ *                        Use -1 to query without modifying colour_mode settings.
+ *
+ * \returns current colour mode.
+ */
+int scribble_colour_mode(int colour_mode);
 
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);

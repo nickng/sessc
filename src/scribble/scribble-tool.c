@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
     static struct option long_options[] = {
       {"project", required_argument, 0, 'p'},
       {"output",  required_argument, 0, 'o'},
+      {"colour",  no_argument,       0,  0 },
       {"parse",   no_argument,       0, 's'},
       {"check",   no_argument,       0, 'c'},
       {"version", no_argument,       0, 'v'},
@@ -45,6 +46,11 @@ int main(int argc, char *argv[])
     if (option == -1) break;
 
     switch (option) {
+      case 0:
+        if (0 == strcmp(long_options[option_idx].name, "colour")) {
+          scribble_colour_mode(1);
+        }
+        break;
       case 'p':
         project_role = (char *)calloc(sizeof(char), strlen(optarg)+1);
         strcpy(project_role, optarg);

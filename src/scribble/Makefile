@@ -18,7 +18,6 @@ scribble-tool: scribble-tool.c $(OBJS)
 	$(CC) $(CFLAGS) -o $(BIN_DIR)/scribble-tool \
 	  $(OBJS) scribble-tool.c $(LD_FLAGS)
 
-CFLAGS += -DCOLOUR_SUPPORT 
 # Override runtime build rules (header files under scribble/)
 $(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/scribble/%.h
 	$(CC) $(CFLAGS) -c $*.c \
