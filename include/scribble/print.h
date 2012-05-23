@@ -10,6 +10,16 @@
 #include <stdio.h>
 #include "st_node.h"
 
+/**
+ * \brief Set whether scribble pretty printer uses colour.
+ *
+ * @param[in] colour_mode Colour mode to be set.
+ *                        Use -1 to query without modifying colour_mode settings.
+ *
+ * \returns current colour mode.
+ */
+int scribble_colour_mode(int colour_mode);
+
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
 void scribble_fprint_send(FILE *stream, st_node *node, int indent);
