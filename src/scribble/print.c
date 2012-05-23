@@ -29,6 +29,7 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
   int i = 0;
   char orig_str[2560];
   int found;
+  static int in_comment = 0;
   va_list argptr;
   va_start(argptr, format);
   vsnprintf(orig_str, 2560, format, argptr);
@@ -41,6 +42,15 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
     "rec",      "role", "to",     NULL
   };
 
+  // Colour mode
+  //
+  if (!scribble_colour_mode(-1)) {
+    fprintf(stream, "%s", orig_str);
+    return;
+  }
+
+  // Not colour mode
+  //
   for (i=0; i<strlen(orig_str); ++i) {
     if (orig_str[i] == ' ') {
       fprintf(stream, " ");
@@ -51,6 +61,21 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
   char *token = strtok(orig_str, " ");
   if (token == NULL) return;
   do {
+    // Comment detection
+    if (!in_comment && NULL != strstr(token, "//")) {
+      in_comment = 1;
+    }
+    if (in_comment) {
+      if (NULL != strchr(token, '\n')) {
+        fprintf(stream, "\033[1;34m%s\033[0m", token);
+        in_comment = 0;
+      } else {
+        fprintf(stream, "\033[1;34m%s\033[0m ", token);
+      }
+      continue;
+    }
+
+    // Keywords detection
     found = 0;
     i = 0;
     while (scribble_keywords[i] != NULL) {
@@ -59,13 +84,14 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
       }
       i++;
     }
-    if (found && scribble_colour_mode(-1)) {
+    if (found) {
       fprintf(stream, "\033[1;32m%s\033[0m ", token);
     } else {
-      if (NULL == strchr(token, '\n') && NULL == strchr(token, '}')) {
-        fprintf(stream, "%s ", token);
-      } else {
+      if (NULL != strchr(token, '\n') || NULL != strchr(token, '}')) {
+        // w/o trailing space
         fprintf(stream, "%s", token);
+      } else {
+        fprintf(stream, "%s ", token);
       }
     }
   } while ((token = strtok(NULL, " ")) != NULL);
