@@ -52,6 +52,7 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
   if (token == NULL) return;
   do {
     found = 0;
+    i = 0;
     while (scribble_keywords[i] != NULL) {
       if (0 == strcmp(token, scribble_keywords[i])) {
         found = 1;
@@ -61,7 +62,11 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
     if (found && scribble_colour_mode(-1)) {
       fprintf(stream, "\033[1;32m%s\033[0m ", token);
     } else {
-      fprintf(stream, "%s ", token);
+      if (NULL == strchr(token, '\n') && NULL == strchr(token, '}')) {
+        fprintf(stream, "%s ", token);
+      } else {
+        fprintf(stream, "%s", token);
+      }
     }
   } while ((token = strtok(NULL, " ")) != NULL);
 }
