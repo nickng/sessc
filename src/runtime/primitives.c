@@ -180,7 +180,7 @@ inline int has_label(char *label, const char *_label)
 
 inline int recv_int(int *dst, role *r)
 {
-  size_t count;
+  size_t count = 1;
   return recv_int_array(dst, &count, r);
 }
 
