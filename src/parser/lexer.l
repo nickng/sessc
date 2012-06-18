@@ -30,7 +30,7 @@ comment                 "//"([^\n])*\n
 %%
 
     /* Skip whitespace */
-[ \t\n]                 ;
+[ \t\r\n]               ;
 
     /* Keywords */
 "and"                   { DEBUG_PRINT("Token: AND '%s'\n");       return AND;       }
