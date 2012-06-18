@@ -3,7 +3,7 @@ sessc: Session C Programming framework
 
 Dependencies
 ------------
-   -   POSIX-compatible lex/yacc
+   -   POSIX-compatible lex/yacc (2.4.1+)
    -   ZeroMQ 2.1 development headers and shared libraries
 
 Building
