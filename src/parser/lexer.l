@@ -17,6 +17,7 @@
 
 
 digit                   [0-9]
+digits                  {digit}{digit}*
 letter                  [A-Za-z]
 identifier              ({letter}|_)({letter}|{digit}|_)*
 
@@ -58,11 +59,19 @@ comment                 "//"([^\n])*\n
 ":"                     { DEBUG_PRINT("Token: COLON '%s'\n");     return COLON;     }
 ";"                     { DEBUG_PRINT("Token: SEMICOLON '%s'\n"); return SEMICOLON; }
 
+    /* Symbols for parametrised */
+"["                     { DEBUG_PRINT("Token: LSQUARE '%s'\n");   return LSQUARE;   }
+"]"                     { DEBUG_PRINT("Token: RSQUARE '%s'\n");   return RSQUARE;   }
+"+"                     { DEBUG_PRINT("Token: PLUS '%s'\n");      return PLUS;      }
+".."                    { DEBUG_PRINT("Token: NUMRANGE '%s'\n");  return NUMRANGE;  }
+
     /* Variables */
+{digits}                { yylval.num = atol(yytext); // Unsigned
+                          DEBUG_PRINT("Token: DIGITS '%s'\n");    return DIGITS;    }
 {identifier}            { yylval.str = strdup(yytext);
-                          DEBUG_PRINT("Token: IDENT '%s'\n");     return IDENT;    }
-{mlcomment}             { DEBUG_PRINT("Token: COMMENT '%s'\n");                    }
-{comment}               { DEBUG_PRINT("Token: COMMENT '%s'\n");                    }
+                          DEBUG_PRINT("Token: IDENT '%s'\n");     return IDENT;     }
+{mlcomment}             { DEBUG_PRINT("Token: COMMENT '%s'\n");                     }
+{comment}               { DEBUG_PRINT("Token: COMMENT '%s'\n");                     }
 
     /* Catch all */
 .                       { fprintf(stderr, "lexer: Don't know what is '%s'\n", yytext); yyterminate(); }

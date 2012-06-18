@@ -21,6 +21,7 @@ st_node *parent;
 st_nodes *node_list;
 st_node_msgsig_t msgsig;
 st_tree_import_t import;
+static role_params_t role_params;
 
 void yyerror(st_tree *tree, const char *s)
 {
@@ -32,12 +33,14 @@ void yyerror(st_tree *tree, const char *s)
 %token AND AS AT CHOICE CONTINUE FROM GLOBAL IMPORT LOCAL OR PAR PROTOCOL REC ROLE TO
 
     /* Symbols */
-%token LBRACE RBRACE LPAREN RPAREN SEMICOLON COLON COMMA
+%token LBRACE RBRACE LPAREN RPAREN SEMICOLON COLON COMMA LSQUARE RSQUARE PLUS NUMRANGE
 
     /* Variables */
 %token <str> IDENT COMMENT
+%token <num> DIGITS
 
 %type <str> role_name message_operator message_payload type_decl_from type_decl_as
+%type <role_param> role_param role_param_binder role_param_range role_param_add role_param_var role_param_set role_indices
 %type <node> message choice parallel recursion continue
 %type <node> send receive l_choice l_parallel l_recursion
 %type <node> global_interaction global_interaction_blk and_global_interaction_blk or_global_interaction_blk
@@ -53,10 +56,12 @@ void yyerror(st_tree *tree, const char *s)
 %parse-param {st_tree *tree}
 
 %union {
+    unsigned long num;
     char *str;
     st_node *node;
     st_nodes *node_list;
     st_node_msgsig_t msgsig;
+    role_param_t *role_param;
 }
 
 %start scribble_protocol
@@ -139,6 +144,129 @@ role_decl                   :   ROLE role_name  { st_tree_add_role(tree, $2); }
 role_name                   :   IDENT { $$ = $1; }
                             ;
 
+role_param_binder           :   role_param_range { $$ = $1;   }
+                            |   role_param_set   { $$ = $1;   }
+                            |                    { $$ = NULL; }
+                            ;
+
+role_param                  :   role_param_range { $$ = $1;   }
+                            |   role_param_set   { $$ = $1;   }
+                            |   role_param_add   { $$ = $1;   }
+                            |   role_param_var   { $$ = $1;   }
+                            |                    { $$ = NULL; }
+                            ;
+
+/* --------------------------- Parametrised roles --------------------------- */
+
+role_param_range            : LSQUARE IDENT COLON DIGITS NUMRANGE DIGITS RSQUARE {
+                                                                 printf("role_param_range\n");
+                                                                                  $$ = (role_param_t *)malloc(sizeof(role_param_t));
+                                                                                  $$->count = 0;
+                                                                                  unsigned long i;
+                                                                                  for (i=$4; i<=$6; ++i) {
+                                                                                    $$->params = (unsigned long *)realloc($$->params, sizeof(unsigned long) * ($$->count + 1));
+                                                                                    $$->name = strdup($2);
+                                                                                    $$->params[$$->count++] = i;
+                                                                                  }
+
+                                                                                  role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
+                                                                                  role_params.params_ptrs[role_params.count++] = $$;
+                                                                 for (i=0; i<$$->count; ++i) {
+                                                                   printf("%s: %lu\n", $$->name, $$->params[i]);
+                                                                 }
+                                                                                 }
+                            ;
+
+role_param_var              : LSQUARE IDENT COLON IDENT RSQUARE {
+                                                                 $$ = (role_param_t *)malloc(sizeof(role_param_t));
+                                                                 $$->count = 0;
+                                                                 int i, j;
+                                                                 for (i=0; i<role_params.count; ++i) {
+                                                                   if (0 == strcmp(role_params.params_ptrs[i]->name, $4)) {
+                                                                     for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
+                                                                       $$->params = (unsigned long *)realloc($$->params, sizeof(unsigned long) * ($$->count + 1));
+                                                                       $$->name = strdup($2);
+                                                                       $$->params[$$->count++] = role_params.params_ptrs[i]->params[j];
+                                                                     }
+
+                                                                     role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
+                                                                     role_params.params_ptrs[role_params.count++] = $$;
+                                                                     break;
+                                                                   }
+                                                                 }
+
+                                                                 for (i=0; i<$$->count; ++i) {
+                                                                   printf("%s: %lu\n", $$->name, $$->params[i]);
+                                                                 }
+                                                                }
+                            ;
+
+role_param_add              : LSQUARE IDENT COLON IDENT PLUS DIGITS RSQUARE { printf("ADD %lu\n", $6);
+                                                                             $$ = (role_param_t *)malloc(sizeof(role_param_t));
+                                                                             $$->count = 0;
+                                                                             int i, j;
+                                                                             for (i=0; i<role_params.count; ++i) {
+                                                                               if (0 == strcmp(role_params.params_ptrs[i]->name, $4)) {
+                                                                                 for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
+                                                                                   $$->params = (unsigned long *)realloc($$->params, sizeof(unsigned long) * ($$->count + 1));
+                                                                                   $$->name = strdup($2);
+                                                                                   $$->params[$$->count++] = role_params.params_ptrs[i]->params[j] + $6;
+                                                                                  }
+
+                                                                                  role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
+                                                                                  role_params.params_ptrs[role_params.count++] = $$;
+                                                                                  break;
+                                                                                }
+                                                                             }
+                                                                 for (i=0; i<$$->count; ++i) {
+                                                                   printf("%s: %lu\n", $$->name, $$->params[i]);
+                                                                 }
+                                                                            }
+                            | LSQUARE IDENT COLON DIGITS PLUS IDENT RSQUARE {
+                                                                             $$ = (role_param_t *)malloc(sizeof(role_param_t));
+                                                                             $$->count = 0;
+                                                                             int i, j;
+                                                                             for (i=0; i<role_params.count; ++i) {
+                                                                               if (0 == strcmp(role_params.params_ptrs[i]->name, $6)) {
+                                                                                 for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
+                                                                                   $$->params = (unsigned long *)realloc($$->params, sizeof(unsigned long) * ($$->count + 1));
+                                                                                   $$->name = strdup($2);
+                                                                                   $$->params[$$->count++] = role_params.params_ptrs[i]->params[j] + $4;
+                                                                                  }
+
+                                                                                  role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
+                                                                                  role_params.params_ptrs[role_params.count++] = $$;
+                                                                                  break;
+                                                                                }
+                                                                             }
+                                                                 for (i=0; i<$$->count; ++i) {
+                                                                   printf("%s: %lu\n", $$->name, $$->params[i]);
+                                                                 }
+                                                                            }
+                            ;
+
+role_indices                : DIGITS                    {
+                                                          $$ = (role_param_t *)malloc(sizeof(role_param_t));
+                                                          $$->count = 1;
+                                                          $$->params = (unsigned long *)malloc(sizeof(unsigned long));
+                                                          $$->params[0] = $1;
+                                                        }
+                            | role_indices COMMA DIGITS {
+                                                          $1->params = realloc($1->params, sizeof(unsigned long) * ($1->count + 1));
+                                                          $1->params[$1->count++] = $3;
+
+                                                          $$ = $1;
+                                                        }
+                            ;
+
+role_param_set              : LSQUARE IDENT COLON role_indices RSQUARE { $$ = $4;
+                                                                         $$->name = strdup($2);
+                                                                 for (i=0; i<$$->count; ++i) {
+                                                                   printf("%s: %lu\n", $$->name, $$->params[i]);
+                                                                 }
+}
+                            ;
+
 /* --------------------------- Global Interaction Blocks and Sequences --------------------------- */
 
 global_prot_body            :   global_interaction_blk { tree->root = $1; }
@@ -175,20 +303,23 @@ global_interaction          :   message   { $$ = $1; }
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-message                     :   message_signature FROM role_name TO role_name SEMICOLON {
-                                                                                            node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
-                                                                                            node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
-                                                                                            strcpy(node->interaction->from, $3);
+message                     :   message_signature FROM role_name role_param_binder TO role_name role_param SEMICOLON {
+                                                                                                                       node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
+                                                                                                                       node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
+                                                                                                                       strcpy(node->interaction->from, $3);
 
-                                                                                            node->interaction->nto = 1;
-                                                                                            node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
-                                                                                            node->interaction->to[0] = (char *)calloc(sizeof(char), (strlen($5)+1));
-                                                                                            strcpy(node->interaction->to[0], $5);
+                                                                                                                       node->interaction->nto = 1;
+                                                                                                                       node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
+                                                                                                                       node->interaction->to[0] = (char *)calloc(sizeof(char), (strlen($6)+1));
+                                                                                                                       strcpy(node->interaction->to[0], $6);
 
-                                                                                            node->interaction->msgsig = $1;
+                                                                                                                       node->interaction->msgsig = $1;
 
-                                                                                            $$ = node;
-                                                                                        }
+                                                                                                                       $$ = node;
+
+                                                                                                                       role_params.count = 0;
+                                                                                                                       free(role_params.params_ptrs);
+                                                                                                                     }
                             ;
 
 /* --------------------------- Choice --------------------------- */
@@ -304,33 +435,33 @@ local_interaction           :   send        { $$ = $1; }
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-send                        :   message_signature TO role_name SEMICOLON {
-                                                                            node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
-                                                                            node->interaction->from = NULL;
+send                        :   message_signature TO role_name role_param_binder SEMICOLON {
+                                                                                            node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
+                                                                                            node->interaction->from = NULL;
 
-                                                                            node->interaction->nto = 1;
-                                                                            node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
-                                                                            node->interaction->to[0] = (char *)calloc(sizeof(char), (strlen($3)+1));
-                                                                            strcpy(node->interaction->to[0], $3);
+                                                                                            node->interaction->nto = 1;
+                                                                                            node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
+                                                                                            node->interaction->to[0] = (char *)calloc(sizeof(char), (strlen($3)+1));
+                                                                                            strcpy(node->interaction->to[0], $3);
 
-                                                                            node->interaction->msgsig = $1;
+                                                                                            node->interaction->msgsig = $1;
 
-                                                                            $$ = node;
-                                                                         }
+                                                                                            $$ = node;
+                                                                                           }
                             ;
 
-receive                     :   message_signature FROM role_name SEMICOLON {
-                                                                            node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-                                                                            node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
-                                                                            strcpy(node->interaction->from, $3);
+receive                     :   message_signature FROM role_name role_param_binder SEMICOLON {
+                                                                                              node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+                                                                                              node->interaction->from = (char *)calloc(sizeof(char), (strlen($3)+1));
+                                                                                              strcpy(node->interaction->from, $3);
 
-                                                                            node->interaction->nto = 0;
-                                                                            node->interaction->to = NULL;
+                                                                                              node->interaction->nto = 0;
+                                                                                              node->interaction->to = NULL;
 
-                                                                            node->interaction->msgsig = $1;
+                                                                                              node->interaction->msgsig = $1;
 
-                                                                            $$ = node;
-                                                                           }
+                                                                                              $$ = node;
+                                                                                             }
                             ;
 
 /* --------------------------- Choice --------------------------- */
