@@ -64,6 +64,7 @@ comment                 "//"([^\n])*\n
 "]"                     { DEBUG_PRINT("Token: RSQUARE '%s'\n");   return RSQUARE;   }
 "+"                     { DEBUG_PRINT("Token: PLUS '%s'\n");      return PLUS;      }
 ".."                    { DEBUG_PRINT("Token: NUMRANGE '%s'\n");  return NUMRANGE;  }
+"if"                    { DEBUG_PRINT("Token: IF '%s'\n");        return IF;        }
 
     /* Variables */
 {digits}                { yylval.num = atol(yytext); // Unsigned

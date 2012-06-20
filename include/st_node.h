@@ -24,6 +24,9 @@ extern "C" {
 #define ST_NODE_SEND     6
 #define ST_NODE_RECV     7
 
+#define ST_ROLE_NORMAL       0
+#define ST_ROLE_PARAMETRISED 1
+
 
 typedef struct {
   char *name;
@@ -37,12 +40,32 @@ typedef struct {
   char *payload;
 } st_node_msgsig_t;
 
+typedef struct {
+  char *name;
+  char *bindvar;
+  int idxcount;
+  long *indices;
+} parametrised_role_t;
+
+typedef parametrised_role_t msg_cond_t;
 
 typedef struct {
   st_node_msgsig_t msgsig;
   int nto;
-  char **to;
-  char *from;
+
+  int to_type; // ST_ROLE_NORMAL or ST_ROLE_PARAMETRISED
+  union {
+    char **to;
+    parametrised_role_t **p_to;
+  };
+
+  int from_type; // ST_ROLE_NORMAL or ST_ROLE_PARAMETRISED
+  union {
+    char *from;
+    parametrised_role_t *p_from;
+  };
+
+  msg_cond_t *msg_cond;
 } st_node_interaction;
 
 

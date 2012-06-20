@@ -142,6 +142,10 @@ st_node *st_node_init(st_node *node, int type)
     case ST_NODE_SEND:
     case ST_NODE_RECV:
       node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
+      // Defaults role type to non-parametrised
+      node->interaction->to_type = ST_ROLE_NORMAL;
+      node->interaction->from_type = ST_ROLE_NORMAL;
+      node->interaction->msg_cond = NULL;
       break;
     case ST_NODE_PARALLEL:
       break;
@@ -236,7 +240,7 @@ void st_node_print_r(const st_node *node, int indent)
 
 void st_node_print(const st_node *node, int indent)
 {
-  int i;
+  int i, j;
 
   if (node != NULL) {
     if (node->marked) {
@@ -246,34 +250,126 @@ void st_node_print(const st_node *node, int indent)
     }
     for (i=indent; i>0; --i) printf("  ");
     switch (node->type) {
-      case ST_NODE_ROOT:
+
+      case ST_NODE_ROOT: // ---------- ROOT ----------
         printf("Node { type: root }\n");
         break;
-      case ST_NODE_SENDRECV:
-        if (node->interaction->nto > 0) {
-          printf("Node { type: interaction, from: %s, to(%d): [%s ..], msgsig: { op: %s, payload: %s }}\n", node->interaction->from, node->interaction->nto, node->interaction->to[0], node->interaction->msgsig.op, node->interaction->msgsig.payload);
-        } else {
-          printf("Node { type: interaction, from: %s, to(%d): [], msgsig: { op: %s, payload: %s }}\n", node->interaction->from, node->interaction->nto, node->interaction->msgsig.op, node->interaction->msgsig.payload);
+
+      case ST_NODE_SENDRECV: // ---------- SENDRECV ----------
+
+        printf("Node { type: interaction, from: ");
+        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // ST_ROLE_PARAMETRISED
+          printf("%s[%s:", node->interaction->p_from->name, node->interaction->p_from->bindvar);
+          for (j=0; j<node->interaction->p_from->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->p_from->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("]");
+        } else { // ST_ROLE_NORMAL
+          printf("%s", node->interaction->from);
         }
+        printf(", to(%d): ", node->interaction->nto);
+        if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // ST_ROLE_PARAMETRISED
+          printf("[%s[%s:", node->interaction->p_to[0]->name, node->interaction->p_to[0]->bindvar);
+          for (j=0; j<node->interaction->p_to[0]->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->p_to[0]->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("] ..]");
+        } else { // ST_ROLE_NORMAL
+          printf("[%s ..]", node->interaction->to[0]);
+        }
+        printf(", msgsig: { op: %s, payload: %s }}\n", node->interaction->msgsig.op, node->interaction->msgsig.payload);
         break;
-      case ST_NODE_SEND:
-        printf("Node { type: send, to: %s, msgsig: { op: %s, payload: %s }}\n", node->interaction->to[0], node->interaction->msgsig.op, node->interaction->msgsig.payload);
+
+      case ST_NODE_SEND: // ---------- SEND ----------
+        printf("Node { type: send, to: ");
+        if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // ST_ROLE_PARAMETRISED
+          printf("[%s[%s:", node->interaction->p_to[0]->name, node->interaction->p_to[0]->bindvar);
+          for (j=0; j<node->interaction->p_to[0]->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->p_to[0]->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("] ..]");
+        } else { // ST_ROLE_NORMAL
+          printf("[%s ..]", node->interaction->to[0]);
+        }
+        printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
+        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
+          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->msg_cond->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("]");
+        } // if msg_cond
+        printf("}\n");
         break;
-      case ST_NODE_RECV:
-        printf("Node { type: recv, from: %s, msgsig: { op: %s, payload: %s }}\n", node->interaction->from, node->interaction->msgsig.op, node->interaction->msgsig.payload);
+
+      case ST_NODE_RECV: // ----------- RECV -----------
+        printf("Node { type: recv, from: ");
+        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // ST_ROLE_PARAMETRISED
+          printf("%s[%s:", node->interaction->p_from->name, node->interaction->p_from->bindvar);
+          for (j=0; j<node->interaction->p_from->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->p_from->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("]");
+        } else { // ST_ROLE_NORMAL
+          printf("%s", node->interaction->from);
+        }
+        printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
+        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
+          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+            if (j != 0) printf(",");
+            printf("%ld", node->interaction->msg_cond->indices[j]);
+            if (j > 4) {
+              printf(",...");
+              break;
+            }
+          }
+          printf("]");
+        } // if msg_cond
+        printf("}\n");
         break;
-      case ST_NODE_CHOICE:
+
+      case ST_NODE_CHOICE: // ---------- CHOICE ----------
         printf("Node { type: choice, at: %s } %d children \n", node->choice->at, node->nchild);
         break;
-      case ST_NODE_PARALLEL:
+
+      case ST_NODE_PARALLEL: // ---------- PARALLEL ----------
         printf("Node { type: par }\n");
         break;
-      case ST_NODE_RECUR:
+
+      case ST_NODE_RECUR: // ---------- RECUR ----------
         printf("Node { type: recur, label: %s }\n", node->recur->label);
         break;
-      case ST_NODE_CONTINUE:
+
+      case ST_NODE_CONTINUE: // ---------- CONTINUE ----------
         printf("Node { type: continue, label: %s }\n", node->cont->label);
         break;
+
       default:
         fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
         break;

@@ -8,8 +8,8 @@ typedef struct {
 
 typedef struct {
   int count;
-  char *name; // Name of the variable bound to the parameter(s)
-  unsigned long *params;
+  char *bindvar; // Name of the variable bound to the parameter(s)
+  long *params;
 } role_param_t;
 
 typedef struct {
