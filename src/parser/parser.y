@@ -120,7 +120,8 @@ role_decl_list              :
                             |   role_decl_list COMMA role_decl  
                             ;
 
-role_decl                   :   ROLE role_name  { st_tree_add_role(tree, $2); }
+role_decl                   :   ROLE role_name role_param_range { st_tree_add_role(tree, $2); /*TODO*/ }
+                            |   ROLE role_name                  { st_tree_add_role(tree, $2); }
                             ;
 
 role_name                   :   IDENT { $$ = $1; }

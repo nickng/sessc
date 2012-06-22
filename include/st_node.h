@@ -176,6 +176,15 @@ st_tree *st_tree_set_name(st_tree *tree, const char *name);
  */
 st_tree *st_tree_add_role(st_tree *tree, const char *role);
 
+/**
+ * \brief Add a role (with parameter) to protocol.
+ *
+ * @param[in,out] tree Session type tree of protocol.
+ * @param[in]     role Role name to add.
+ *
+ * \returns Updated session types tree.
+ */
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, const parametrised_role_t *param);
 
 /**
  * \brief Add an import to protocol.

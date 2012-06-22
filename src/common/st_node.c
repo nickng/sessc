@@ -106,6 +106,13 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
 }
 
 
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, const parametrised_role_t *param)
+{
+  // TODO Store param
+  return st_tree_add_role(tree, role);
+}
+
+
 st_tree *st_tree_add_import(st_tree *tree, st_tree_import_t import)
 {
   assert(tree != NULL);
