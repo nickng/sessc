@@ -241,6 +241,26 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
     }
   }
 
+  // If
+  if (node->interaction->msg_cond != NULL) {
+      scribble_fprintf(stream, " if %s[%s:",
+          node->interaction->msg_cond->name,
+          node->interaction->msg_cond->bindvar);
+      if (is_consecutive(node->interaction->msg_cond->indices, node->interaction->msg_cond->idxcount)) {
+        scribble_fprintf(stream, "%d..%d",
+            node->interaction->msg_cond->indices[0],
+            node->interaction->msg_cond->indices[node->interaction->msg_cond->idxcount-1]);
+      } else {
+        for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+            scribble_fprintf(stream, "%d",
+                node->interaction->msg_cond->indices[j]);
+            if (j!=node->interaction->msg_cond->idxcount-1) scribble_fprintf(stream, ",");
+        }
+        if (i!=node->interaction->nto-1) scribble_fprintf(stream, ", ");
+      }
+      scribble_fprintf(stream, "]");
+  }
+
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
 
@@ -275,6 +295,26 @@ void scribble_fprint_recv(FILE *stream, st_node *node, int indent)
   } else { // ST_ROLE_NORMAL
     scribble_fprintf(stream, "%s",
         node->interaction->from);
+  }
+
+  // If
+  if (node->interaction->msg_cond != NULL) {
+      scribble_fprintf(stream, " if %s[%s:",
+          node->interaction->msg_cond->name,
+          node->interaction->msg_cond->bindvar);
+      if (is_consecutive(node->interaction->msg_cond->indices, node->interaction->msg_cond->idxcount)) {
+        scribble_fprintf(stream, "%d..%d",
+            node->interaction->msg_cond->indices[0],
+            node->interaction->msg_cond->indices[node->interaction->msg_cond->idxcount-1]);
+      } else {
+        for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+            scribble_fprintf(stream, "%d",
+                node->interaction->msg_cond->indices[j]);
+            if (j!=node->interaction->msg_cond->idxcount-1) scribble_fprintf(stream, ",");
+        }
+        if (i!=node->interaction->nto-1) scribble_fprintf(stream, ", ");
+      }
+      scribble_fprintf(stream, "]");
   }
 
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");

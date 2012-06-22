@@ -24,6 +24,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
   int error = 0;
 
   assert(node != NULL);
+  // TODO: Extend for parametrised roles
   switch (node->type) {
     case ST_NODE_SEND:
       for (i=0; i<node->interaction->nto; ++i) {

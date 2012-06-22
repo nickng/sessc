@@ -8,6 +8,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -39,31 +40,176 @@ st_node *scribble_project_message(st_node *node, char *projectrole)
   assert(node != NULL && node->type == ST_NODE_SENDRECV);
   st_node *local = (st_node *)malloc(sizeof(st_node));
 
-  if (strcmp(node->interaction->from, projectrole) == 0) {
-    local = st_node_init(local, ST_NODE_SEND);
-    local->interaction->from = NULL;
-    local->interaction->nto = node->interaction->nto;
-    local->interaction->to = (char **)malloc(sizeof(char *) * local->interaction->nto);
-    for (i=0; i<local->interaction->nto; ++i) {
-      local->interaction->to[i] = strdup(node->interaction->to[i]);
-    }
-    local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
-    local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+  assert(ST_ROLE_NORMAL == node->interaction->from_type||ST_ROLE_PARAMETRISED == node->interaction->from_type
+         ||ST_ROLE_NORMAL == node->interaction->to_type||ST_ROLE_PARAMETRISED == node->interaction->to_type);
 
-    return local;
-  }
+  // Parametrised from
+  if (ST_ROLE_PARAMETRISED == node->interaction->from_type) {
+    if (0 == strcmp(node->interaction->p_from->name, projectrole)) { // Rule 1, 3
+      local = st_node_init(local, ST_NODE_SEND);
 
-  for (i=0; i<node->interaction->nto; ++i) {
-    if (strcmp(node->interaction->to[i], projectrole) == 0) {
-      local = st_node_init(local, ST_NODE_RECV);
-      local->interaction->from = (char *)calloc(sizeof(char), strlen(node->interaction->from)+1);
-      local->interaction->from = strdup(node->interaction->from);
-      local->interaction->nto = 0;
-      local->interaction->to = NULL;
-      local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
-      local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+      local->interaction->from_type = ST_ROLE_NORMAL;
+      local->interaction->from = NULL;
+
+      local->interaction->nto = node->interaction->nto;
+      if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // Rule 1, parametrised -> parametrised
+
+        local->interaction->to_type = ST_ROLE_PARAMETRISED;
+        local->interaction->p_to = (parametrised_role_t **)calloc(sizeof(parametrised_role_t *), local->interaction->nto);
+        for (i=0; i<local->interaction->nto; ++i) {
+          local->interaction->p_to[i] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+          local->interaction->p_to[i]->name = strdup(node->interaction->p_to[i]->name);
+          local->interaction->p_to[i]->bindvar = strdup(node->interaction->p_to[i]->bindvar);
+          local->interaction->p_to[i]->idxcount = node->interaction->p_to[i]->idxcount;
+          local->interaction->p_to[i]->indices = (long *)calloc(sizeof(long), local->interaction->p_to[i]->idxcount);
+          memcpy(local->interaction->p_to[i]->indices, node->interaction->p_to[i]->indices, sizeof(long) * local->interaction->p_to[i]->idxcount);
+        }
+
+      } else if (ST_ROLE_NORMAL == node->interaction->to_type) { // Rule 3, parametrised -> non-parametirsed
+
+        local->interaction->to_type = ST_ROLE_NORMAL;
+        local->interaction->to = (char **)calloc(sizeof(char *), local->interaction->nto);
+        for (i=0; i<local->interaction->nto; ++i) {
+          local->interaction->to[i] = strdup(node->interaction->to[i]);
+        }
+      }
+
+      // Message condition
+      local->interaction->msg_cond = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+      local->interaction->msg_cond->name = strdup(node->interaction->p_from->name);
+      local->interaction->msg_cond->bindvar = strdup(node->interaction->p_from->bindvar);
+      local->interaction->msg_cond->idxcount = node->interaction->p_from->idxcount;
+      local->interaction->msg_cond->indices = (long *)calloc(sizeof(long), local->interaction->msg_cond->idxcount);
+      memcpy(local->interaction->msg_cond->indices, node->interaction->p_from->indices, sizeof(long) * local->interaction->msg_cond->idxcount);
+
+      // Message signature
+      local->interaction->msgsig.op = node->interaction->msgsig.op == NULL ? NULL : strdup(node->interaction->msgsig.op);
+      local->interaction->msgsig.payload = node->interaction->msgsig.payload == NULL ? NULL : strdup(node->interaction->msgsig.payload);
 
       return local;
+    }
+  }
+
+
+  // Parametrised to
+  if (ST_ROLE_PARAMETRISED == node->interaction->to_type) {
+    for (i=0; i<node->interaction->nto; ++i) {
+      if (0 == strcmp(node->interaction->p_to[i]->name, projectrole)) { // Rule 2, 4
+        local = st_node_init(local, ST_NODE_RECV);
+
+        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // Rule 2, parametrised -> parametrised
+
+          local->interaction->from_type = ST_ROLE_PARAMETRISED;
+          local->interaction->p_from = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+          local->interaction->p_from->name = strdup(node->interaction->p_from->name);
+          local->interaction->p_from->bindvar = strdup(node->interaction->p_from->bindvar);
+          local->interaction->p_from->idxcount = node->interaction->p_from->idxcount;
+          local->interaction->p_from->indices = (long *)calloc(sizeof(long), local->interaction->p_from->idxcount);
+          memcpy(local->interaction->p_from->indices, node->interaction->p_from->indices, sizeof(long) * local->interaction->p_from->idxcount);
+
+        } else if (ST_ROLE_NORMAL == node->interaction->from_type) { // Rule 4, non-parametrised -> parametrised
+
+          local->interaction->from_type = ST_ROLE_NORMAL;
+          local->interaction->from = strdup(node->interaction->from);
+
+        }
+
+        // Message condition (XXX: only copy to[0])
+        local->interaction->msg_cond = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+        local->interaction->msg_cond->name = strdup(node->interaction->p_to[0]->name);
+        local->interaction->msg_cond->bindvar = strdup(node->interaction->p_to[0]->bindvar);
+        local->interaction->msg_cond->idxcount = node->interaction->p_to[0]->idxcount;
+        local->interaction->msg_cond->indices = (long *)calloc(sizeof(long), local->interaction->msg_cond->idxcount);
+        memcpy(local->interaction->msg_cond->indices, node->interaction->p_to[0]->indices, sizeof(long) * local->interaction->msg_cond->idxcount);
+
+        // Message signature
+        local->interaction->msgsig.op = node->interaction->msgsig.op == NULL ? NULL : strdup(node->interaction->msgsig.op);
+        local->interaction->msgsig.payload = node->interaction->msgsig.payload == NULL ? NULL : strdup(node->interaction->msgsig.payload);
+
+        return local;
+      }
+    }
+  }
+
+
+  // Non-parametrised from
+  if (ST_ROLE_NORMAL == node->interaction->from_type) { // Rule 5
+    if (0 == strcmp(node->interaction->from, projectrole)) {
+      local = st_node_init(local, ST_NODE_SEND);
+      local->interaction->from = NULL;
+
+      local->interaction->nto = node->interaction->nto;
+      if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // Rule 5, parametrised -> non-parametrised
+
+        local->interaction->to_type = ST_ROLE_PARAMETRISED;
+        local->interaction->p_to = (parametrised_role_t **)calloc(sizeof(parametrised_role_t *), local->interaction->nto);
+        for (i=0; i<local->interaction->nto; ++i) {
+          local->interaction->p_to[i] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+          local->interaction->p_to[i]->name = strdup(node->interaction->p_to[i]->name);
+          local->interaction->p_to[i]->bindvar = strdup(node->interaction->p_to[i]->bindvar);
+          local->interaction->p_to[i]->idxcount = node->interaction->p_to[i]->idxcount;
+          local->interaction->p_to[i]->indices = (long *)calloc(sizeof(long), local->interaction->p_to[i]->idxcount);
+          memcpy(local->interaction->p_to[i]->indices, node->interaction->p_to[i]->indices, sizeof(long) * local->interaction->p_to[i]->idxcount);
+        }
+
+      } else if (ST_ROLE_NORMAL == node->interaction->to_type) { // Rule 5.0, non-parametrised -> non-parametirsed
+
+        local->interaction->to_type = ST_ROLE_NORMAL;
+        local->interaction->to = (char **)calloc(sizeof(char *), local->interaction->nto);
+        for (i=0; i<local->interaction->nto; ++i) {
+          printf("Index is %d\n", i);
+          printf("To is %s\n", node->interaction->to[i]);
+          local->interaction->to[i] = strdup(node->interaction->to[i]);
+        }
+
+      }
+
+      // Note: No msg_cond
+      local->interaction->msg_cond = NULL;
+
+      // Message signature
+      local->interaction->msgsig.op = node->interaction->msgsig.op == NULL ? NULL : strdup(node->interaction->msgsig.op);
+      local->interaction->msgsig.payload = node->interaction->msgsig.payload == NULL ? NULL : strdup(node->interaction->msgsig.payload);
+
+      return local;
+    }
+  }
+
+
+  // Non-parametrised to
+  if (ST_ROLE_NORMAL == node->interaction->to_type) { // Rule 6
+    for (i=0; i<node->interaction->nto; ++i) {
+      if (0 == strcmp(node->interaction->to[i], projectrole)) {
+        local = st_node_init(local, ST_NODE_RECV);
+
+        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // Rule 6 non-parametrised -> parametrised
+
+          local->interaction->from_type = ST_ROLE_PARAMETRISED;
+          local->interaction->p_from = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+          local->interaction->p_from->name = strdup(node->interaction->p_from->name);
+          local->interaction->p_from->bindvar = strdup(node->interaction->p_from->bindvar);
+          local->interaction->p_from->idxcount = node->interaction->p_from->idxcount;
+          local->interaction->p_from->indices = (long *)calloc(sizeof(long), local->interaction->p_from->idxcount);
+          memcpy(local->interaction->p_from->indices, node->interaction->p_from->indices, sizeof(long) * local->interaction->p_from->idxcount);
+
+        } else if (ST_ROLE_NORMAL == node->interaction->from_type) {  // Rule 6.0 non-parametrised -> non-parametrised
+
+          local->interaction->from = strdup(node->interaction->from);
+
+        }
+
+        local->interaction->nto = 0;
+        local->interaction->to = NULL;
+
+        // Note: No msg_cond
+        local->interaction->msg_cond = NULL;
+
+        // Message signature
+        local->interaction->msgsig.op = node->interaction->msgsig.op == NULL ? NULL : strdup(node->interaction->msgsig.op);
+        local->interaction->msgsig.payload = node->interaction->msgsig.payload == NULL ? NULL : strdup(node->interaction->msgsig.payload);
+
+        return local;
+      }
     }
   }
 
