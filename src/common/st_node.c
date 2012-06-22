@@ -423,10 +423,13 @@ int st_node_compare_async(const st_node *node, const st_node *other)
   search_to   = node->nchild;
 
   for (i=0; i<node->nchild; ++i) {
-    if (ST_NODE_SEND == node->children[i]->type || ST_NODE_RECV == node->children[i]->type) {
+    if ((ST_NODE_SEND == node->children[i]->type && ST_ROLE_NORMAL == node->interaction->to_type)
+       ||(ST_NODE_RECV == node->children[i]->type && ST_ROLE_NORMAL == node->interaction->from_type)) {
       search_from = i;
       for (j=i+1; j<node->nchild; ++j) {
-        if (ST_NODE_SEND != node->children[j]->type && ST_NODE_RECV != node->children[j]->type) {
+        if ((ST_NODE_SEND != node->children[j]->type && ST_NODE_RECV != node->children[j]->type)
+           ||(ST_ROLE_NORMAL != node->interaction->from_type) // Note: order does matter
+           ||(ST_ROLE_NORMAL != node->interaction->to_type)) {
           search_to = j;
           break;
         }
@@ -585,60 +588,98 @@ int st_node_compare(st_node *node, st_node *other)
 
     if (identical) {
 
-        switch (node->type) {
+      switch (node->type) {
         case ST_NODE_ROOT:
-            break;
+          break;
         case ST_NODE_SENDRECV:
-            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
-            identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
-            identical &= (node->interaction->nto == other->interaction->nto);
+          identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+          identical &= (node->interaction->from_type == other->interaction->from_type);
+          identical &= (node->interaction->to_type == other->interaction->to_type);
+          identical &= (node->interaction->nto == other->interaction->nto);
 
-            if (identical) {
-              int i;
-              for (i=0; i<node->interaction->nto; ++i) {
-                identical &= (0 == strcmp(node->interaction->to[i], other->interaction->to[i]));
+          if (identical) {
+            int i, j;
+            if (ST_ROLE_NORMAL == node->interaction->from_type) {
+              identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
+            } else if (ST_ROLE_PARAMETRISED == node->interaction->from_type) {
+              identical &= (0 == strcmp(node->interaction->p_from->name, other->interaction->p_from->name));
+              identical &= (0 == strcmp(node->interaction->p_from->bindvar, other->interaction->p_from->bindvar));
+              identical &= (node->interaction->p_from->idxcount == other->interaction->p_from->idxcount);
+              for (j=0; j<node->interaction->p_from->idxcount; ++j) {
+                identical &= (node->interaction->p_from->indices[j] == other->interaction->p_from->indices[j]);
               }
             }
-            break;
+
+            for (i=0; i<node->interaction->nto; ++i) {
+              if (ST_ROLE_NORMAL == node->interaction->to_type) {
+                identical &= (0 == strcmp(node->interaction->to[i], other->interaction->to[i]));
+              } else if (ST_ROLE_PARAMETRISED == node->interaction->to_type) {
+                identical &= (0 == strcmp(node->interaction->p_to[i]->name, other->interaction->p_to[i]->name));
+                identical &= (0 == strcmp(node->interaction->p_to[i]->bindvar, other->interaction->p_to[i]->bindvar));
+                identical &= (node->interaction->p_to[i]->idxcount == other->interaction->p_to[i]->idxcount);
+                for (j=0; j<node->interaction->p_to[i]->idxcount; ++j) {
+                  identical &= (node->interaction->p_to[i]->indices[j] == other->interaction->p_to[i]->indices[j]);
+                }
+              }
+            }
+          }
+          break;
         case ST_NODE_SEND:
-            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
-            identical &= (node->interaction->nto == other->interaction->nto);
+          identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+          identical &= (node->interaction->nto == other->interaction->nto);
+          identical &= (node->interaction->to_type == other->interaction->to_type);
 
-            if (identical) {
-            int i;
+          if (identical) {
+            int i, j;
             for (i=0; i<node->interaction->nto; ++i) {
-                identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
+              if (ST_ROLE_NORMAL == node->interaction->to_type) { 
+                identical &= (0 == strcmp(node->interaction->to[i], other->interaction->to[i]));
+              } else if (ST_ROLE_PARAMETRISED == node->interaction->from_type) {
+                identical &= (0 == strcmp(node->interaction->p_to[i]->name, other->interaction->p_to[i]->name));
+                identical &= (0 == strcmp(node->interaction->p_to[i]->bindvar, other->interaction->p_to[i]->bindvar));
+                identical &= (node->interaction->p_to[i]->idxcount == other->interaction->p_to[i]->idxcount);
+                for (j=0; j<node->interaction->p_to[i]->idxcount; ++j) {
+                  identical &= (node->interaction->p_to[i]->indices[j] == other->interaction->p_to[i]->indices[j]);
+                }
+              }
             }
-            }
-            break;
+          }
+          break;
         case ST_NODE_RECV:
-            identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
-            identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
-            identical &= (node->interaction->nto == other->interaction->nto);
+          identical &= st_node_compare_msgsig(node->interaction->msgsig, other->interaction->msgsig);
+          identical &= (node->interaction->from_type == other->interaction->from_type);
+          identical &= (node->interaction->nto == other->interaction->nto);
 
-            if (identical) {
-            int i;
-            for (i=0; i<node->interaction->nto; ++i) {
-                identical &= (0 ==strcmp(node->interaction->to[i], other->interaction->to[i]));
+          if (identical) {
+            int j;
+            if (ST_ROLE_NORMAL == node->interaction->from_type) {
+              identical &= (0 == strcmp(node->interaction->from, other->interaction->from));
+            } else if (ST_ROLE_PARAMETRISED == node->interaction->from_type) {
+              identical &= (0 == strcmp(node->interaction->p_from->name, other->interaction->p_from->name));
+              identical &= (0 == strcmp(node->interaction->p_from->bindvar, other->interaction->p_from->bindvar));
+              identical &= (node->interaction->p_from->idxcount == other->interaction->p_from->idxcount);
+              for (j=0; j<node->interaction->p_from->idxcount; ++j) {
+                identical &= (node->interaction->p_from->indices[j] == other->interaction->p_from->indices[j]);
+              }
             }
-            }
-            break;
+          }
+          break;
         case ST_NODE_CHOICE:
-            identical &= (0 == strcmp(node->choice->at, other->choice->at));
-            break;
+          identical &= (0 == strcmp(node->choice->at, other->choice->at));
+          break;
         case ST_NODE_PARALLEL:
-            break;
+          break;
         case ST_NODE_RECUR:
-            // The label might be different: source code recursion label are generated
-            // identical &= (0 == strcmp(node->recur->label, other->recur->label));
-            break;
+          // The label might be different: source code recursion label are generated
+          // identical &= (0 == strcmp(node->recur->label, other->recur->label));
+          break;
         case ST_NODE_CONTINUE:
-            // The label might be different: source code continue label are generated
-            // identical &= (0 == strcmp(node->cont->label, other->cont->label));
-            break;
+          // The label might be different: source code continue label are generated
+          // identical &= (0 == strcmp(node->cont->label, other->cont->label));
+          break;
         default:
-            fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
-            break;
+          fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
+          break;
       }
 
     } // if identical
