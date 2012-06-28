@@ -157,8 +157,6 @@ st_node *scribble_project_message(st_node *node, char *projectrole)
         local->interaction->to_type = ST_ROLE_NORMAL;
         local->interaction->to = (char **)calloc(sizeof(char *), local->interaction->nto);
         for (i=0; i<local->interaction->nto; ++i) {
-          printf("Index is %d\n", i);
-          printf("To is %s\n", node->interaction->to[i]);
           local->interaction->to[i] = strdup(node->interaction->to[i]);
         }
 

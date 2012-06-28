@@ -256,7 +256,6 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
                 node->interaction->msg_cond->indices[j]);
             if (j!=node->interaction->msg_cond->idxcount-1) scribble_fprintf(stream, ",");
         }
-        if (i!=node->interaction->nto-1) scribble_fprintf(stream, ", ");
       }
       scribble_fprintf(stream, "]");
   }
