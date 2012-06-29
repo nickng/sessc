@@ -293,7 +293,9 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     }
   }
   zmq_setsockopt(sess->roles[sess->nrole-1]->grp->in->ptr, ZMQ_SUBSCRIBE, "", 0);
+#ifdef ZMQ_LINGER
   zmq_setsockopt(sess->roles[sess->nrole-1]->grp->out->ptr, ZMQ_LINGER, 0, 0);
+#endif
 
   sess->r = &find_role_in_session;
 
