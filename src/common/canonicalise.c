@@ -153,6 +153,38 @@ st_node *st_node_recur_remove_dup_continue(st_node *node)
 
 
 /**
+ * Move childeren of non-toplevel root to level above.
+ */
+st_node *st_node_raise_subroot_children(st_node *node)
+{
+  int i, j, offset;
+  st_node *subroot;
+
+  for (i=0; i<node->nchild; ++i) {
+    if (node->children[i]->type == ST_NODE_ROOT) {
+      subroot = node->children[i];
+      offset = subroot->nchild - 1;
+      node->nchild = node->nchild + offset;
+      node->children = (st_node **)realloc(node->children, sizeof(st_node *) * node->nchild);
+
+      // Copy old nodes to end
+      for (j=node->nchild-1; j>=i+offset+1; --j) {
+        node->children[j] = node->children[j-offset];
+      }
+      // Copy children of root to this level
+      for (j=0; j<subroot->nchild; ++j) {
+        node->children[i+j] = subroot->children[j];
+      }
+    }
+
+    node->children[i] = st_node_raise_subroot_children(node->children[i]);
+  }
+
+  return node;
+}
+
+
+/**
  * Create canonicalised version of st_node.
  * (1) Remove redundant continue calls inside
  *     if the only operation in a recur block is continue.
@@ -161,6 +193,7 @@ st_node *st_node_recur_remove_dup_continue(st_node *node)
  *     do not change the semantics of the tree.
  * (3) Remove leaf nodes with no children
  *     (choice, par, recur, root)
+ * (4) Move children of non-toplevel root to level above.
  */
 st_node *st_node_canonicalise(st_node *node)
 {
@@ -169,6 +202,7 @@ st_node *st_node_canonicalise(st_node *node)
   node = st_node_empty_leaf_remove(node);
   node = st_node_singleton_leaf_upmerge(node);
   node = st_node_recur_remove_dup_continue(node);
+  node = st_node_raise_subroot_children(node);
   return node;
 }
 

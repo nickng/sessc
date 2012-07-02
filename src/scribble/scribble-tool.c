@@ -129,6 +129,7 @@ int main(int argc, char *argv[])
   if (project_role != NULL) {
     if (verbosity_level > 0) fprintf(stderr, "Projection of %s for %s\n", scribble_file, project_role);
     st_tree *projected_tree = scribble_project(tree, project_role);
+    st_node_canonicalise(projected_tree->root);
     if (verbosity_level > 1) st_tree_print(projected_tree);
     scribble_print(projected_tree);
     st_tree_free(projected_tree);
