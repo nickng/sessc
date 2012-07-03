@@ -1,0 +1,5 @@
+Barrier synchronisation
+-----------------------
+
+This is an example of barrier synchronisation of Session C program
+without typechecking support

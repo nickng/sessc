@@ -1,0 +1,2 @@
+local protocol Protocol at R2(role R0, role R1) {
+}

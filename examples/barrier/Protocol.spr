@@ -1,0 +1,4 @@
+global protocol Protocol(role R0, role R1, role R2) {
+}
+
+
