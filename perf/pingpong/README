@@ -1,0 +1,11 @@
+Overhead test
+-------------
+
+This is a ping-pong test for ZMQ and Session C runtime
+
+We compare the following transports for ZMQ and Session C:
+
+ - TCP
+ - Unix IPC
+
+Simply run `make; ./runall.sh 100 100` to see the results.

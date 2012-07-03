@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   int i;
   for (i=0; i<N; i++) {
     memset(val, i, M * sizeof(int));
-    send_int_array(val, (size_t)M, B);
+    send_int_array(val, (size_t)M, B, NULL);
     sz = M;
     recv_int_array(val, &sz, B);
   }

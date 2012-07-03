@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
   for (i=0; i<N; i++) {
     sz = M;
     recv_int_array(val, &sz, A);
-    send_int_array(val, (size_t)M, A);
+    send_int_array(val, (size_t)M, A, NULL);
   }
 
   long long end_time = sc_time();
