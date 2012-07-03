@@ -161,7 +161,7 @@ st_node *st_node_raise_subroot_children(st_node *node)
   st_node *subroot;
 
   for (i=0; i<node->nchild; ++i) {
-    if (node->children[i]->type == ST_NODE_ROOT) {
+    if (node->type == ST_NODE_ROOT && node->children[i]->type == ST_NODE_ROOT) {
       subroot = node->children[i];
       offset = subroot->nchild - 1;
       node->nchild = node->nchild + offset;
