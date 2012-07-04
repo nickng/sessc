@@ -184,6 +184,10 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   sess->name = (char *)calloc(sizeof(char), strlen(tree->info->myrole)+1);
   strcpy(sess->name, tree->info->myrole);
 
+  // TODO Check whether role is parametrisd and set index
+  sess->is_parametrised = 0; // Defaults to normal role
+  sess->index = -1;
+
   // Direct connections (p2p).
   sess->nrole = tree->info->nrole;
   sess->roles = (role **)malloc(sizeof(role *) * sess->nrole);

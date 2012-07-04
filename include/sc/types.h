@@ -28,6 +28,13 @@ struct role_group
   struct role_endpoint *out; // PUB
 };
 
+struct role_indexed
+{
+  char *name; // Role name of indexed role
+  unsigned int nendpoint;
+  int *index_map; // Maps array index (eg. 0..9) to role index (eg. 1..10)
+  struct role_endpoint **endpoints;
+};
 
 /**
  * An endpoint.
@@ -45,6 +52,7 @@ struct role_t
   union {
     struct role_endpoint *p2p;
     struct role_group    *grp;
+    struct role_indexed  *idx;
   };
 };
 
@@ -58,9 +66,11 @@ typedef struct role_t role;
  */
 struct session_t
 {
-  unsigned int nrole;
-  role **roles;
+  unsigned int nrole; // # of roles in session
+  role **roles; // Pointers to roles in session
   char *name;
+  int is_parametrised;
+  int index; // -1 if not parametrised
 
   // Lookup function.
   role *(*r)(struct session_t *, char *);
