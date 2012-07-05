@@ -55,7 +55,8 @@ static role *find_role_in_session(session *s, char *role_name)
         }
         break;
       case SESSION_ROLE_INDEXED:
-        assert(0); // TODO handle indexed endpoint
+        fprintf(stderr, "Error: %s not defined for indexed role, use r_idx() instead.\n", __FUNCTION__);
+        return NULL;
         break;
       default:
         fprintf(stderr, "Unknown endpoint type: %d\n", s->roles[role_idx]->type);
@@ -64,6 +65,49 @@ static role *find_role_in_session(session *s, char *role_name)
 
   fprintf(stderr, "%s: Role %s not found in session.\n",
       __FUNCTION__, role_name);
+#ifdef __DEBUG__
+  session_dump(s);
+#endif
+  return NULL;
+}
+
+
+/**
+ * Helper function to lookup an indexed role in a session.
+ * This is used for index calculations, for direct reference of indexed roles,
+ * use s->r(s, "IndexRole[42]") instead
+ *
+ */
+static role *find_indexed_role_in_session(session *s, char *role_name, int index)
+{
+  int role_idx, endpoint_idx;
+#ifdef __DEBUG__
+  fprintf(stderr, "%s: { role: %s, index: %d } in ", __FUNCTION__, role_name, index);
+  session_dump(s);
+#endif
+  for (role_idx=0; role_idx<s->nrole; ++role_idx) {
+    switch (s->roles[role_idx]->type) {
+      case SESSION_ROLE_P2P:
+      case SESSION_ROLE_GRP:
+        break;
+      case SESSION_ROLE_INDEXED:
+        if (0 == strcmp(s->roles[role_idx]->idx->name, role_name)) {
+          for (endpoint_idx=0; endpoint_idx<s->roles[role_idx]->idx->nendpoint; ++endpoint_idx) {
+            if (index == s->roles[role_idx]->idx->index_map[endpoint_idx]) {
+              return s->roles[role_idx]->idx->endpoints[endpoint_idx];
+            }
+          }
+          // Indexed role found but without matching index
+          fprintf(stderr, "Error: Index not defined!\n");
+        }
+        break;
+      default:
+        fprintf(stderr, "Unknown endpoint type: %d\n", s->roles[role_idx]->type);
+    }
+  }
+
+  fprintf(stderr, "%s: Role %s[%d] not found in session.\n",
+      __FUNCTION__, role_name, index);
 #ifdef __DEBUG__
   session_dump(s);
 #endif
@@ -184,9 +228,14 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   sess->name = (char *)calloc(sizeof(char), strlen(tree->info->myrole)+1);
   strcpy(sess->name, tree->info->myrole);
 
-  // TODO Check whether role is parametrisd and set index
+  // TODO Check whether role is parametrised and set index
   sess->is_parametrised = 0; // Defaults to normal role
   sess->index = -1;
+
+  if (sess->is_parametrised && sess->index == -1) {
+    fprintf(stderr, "Warning: role index not specified, defaulting to 0\n");
+    sess->index = 0;
+  }
 
   // Direct connections (p2p).
   sess->nrole = tree->info->nrole;
@@ -302,6 +351,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 #endif
 
   sess->r = &find_role_in_session;
+  sess->r_idx = &find_indexed_role_in_session;
 
   free(tree);
 #ifdef __DEBUG__

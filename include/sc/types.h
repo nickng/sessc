@@ -33,7 +33,7 @@ struct role_indexed
   char *name; // Role name of indexed role
   unsigned int nendpoint;
   int *index_map; // Maps array index (eg. 0..9) to role index (eg. 1..10)
-  struct role_endpoint **endpoints;
+  struct role_t **endpoints; // Pointers to role_endpoint roles
 };
 
 /**
@@ -72,8 +72,9 @@ struct session_t
   int is_parametrised;
   int index; // -1 if not parametrised
 
-  // Lookup function.
-  role *(*r)(struct session_t *, char *);
+  // Lookup functions.
+  role *(*r)(struct session_t *, char *); // P2P and Group role
+  role *(*r_idx)(struct session_t *, char *, int); // Indexed role
 
   // Extra data.
   void *ctx;
