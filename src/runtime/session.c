@@ -148,6 +148,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   char *config_file = NULL;
   char *hosts_file = NULL;
   char *protocol_file = NULL;
+  int my_role_index = -1;
 
   // Invoke getopt to extract arguments we need
   while (1) {
@@ -155,11 +156,12 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
       {"conf",     required_argument, 0, 'c'},
       {"hosts",    required_argument, 0, 's'},
       {"protocol", required_argument, 0, 'p'},
+      {"index",    required_argument, 0, 'i'},
       {0, 0, 0, 0}
     };
 
     int option_idx = 0;
-    option = getopt_long(*argc, *argv, "c:s:p:", long_options, &option_idx);
+    option = getopt_long(*argc, *argv, "c:s:p:i:", long_options, &option_idx);
 
     if (option == -1) break;
 
@@ -178,6 +180,10 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
         protocol_file = (char *)calloc(sizeof(char), strlen(optarg)+1);
         strcpy(protocol_file, optarg);
         fprintf(stderr, "Using protocol file %s\n", protocol_file);
+        break;
+      case 'i':
+        my_role_index = atoi(optarg);
+        fprintf(stderr, "Role index is %d\n", my_role_index);
         break;
     }
   }
@@ -230,7 +236,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 
   // TODO Check whether role is parametrised and set index
   sess->is_parametrised = 0; // Defaults to normal role
-  sess->index = -1;
+  sess->index = my_role_index;
 
   if (sess->is_parametrised && sess->index == -1) {
     fprintf(stderr, "Warning: role index not specified, defaulting to 0\n");
