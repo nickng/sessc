@@ -75,14 +75,14 @@ int connmgr_load_roles(const char *scribble, char ***roles)
 #endif
 
 
-  if (!tree->info->global) {
+  if (ST_TYPE_GLOBAL != tree->info->type) {
     fprintf(stderr, "%s:%d Warning: %s(): %s is not a global protocol.\n", __FILE__, __LINE__, __FUNCTION__, scribble);
   }
 
   int i;
   for (i=0; i<tree->info->nrole; ++i) {
-    (*roles)[i] = (char *)calloc(sizeof(char), strlen(tree->info->roles[i])+1);
-    strcpy((*roles)[i], tree->info->roles[i]);
+    (*roles)[i] = (char *)calloc(sizeof(char), strlen(tree->info->roles[i]->name)+1);
+    strcpy((*roles)[i], tree->info->roles[i]->name);
   }
 
   free(tree);

@@ -16,7 +16,7 @@
 #include "scribble/check.h"
 
 
-int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_role)
+static int scribble_check_defined_roles_r(st_node *node, parametrised_role_t **decl_roles, int ndecl_role)
 {
   int i, j;
   int found = 0;
@@ -30,7 +30,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
       for (i=0; i<node->interaction->nto; ++i) {
         found = 0;
         for (j=0; j<ndecl_role; ++j) {
-          if (strcmp(decl_roles[j], node->interaction->to[i]) == 0)
+          if (strcmp(decl_roles[j]->name, node->interaction->to[i]) == 0)
             found = 1;
         }
         if (!found) {
@@ -43,7 +43,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
     case ST_NODE_RECV:
       found = 0;
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j], node->interaction->from) == 0)
+        if (strcmp(decl_roles[j]->name, node->interaction->from) == 0)
           found = 1;
       }
       if (!found) {
@@ -54,7 +54,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
       break;
     case ST_NODE_SENDRECV:
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j], node->interaction->from) == 0)
+        if (strcmp(decl_roles[j]->name, node->interaction->from) == 0)
           found = 1;
       }
       if (!found) {
@@ -65,7 +65,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
       for (i=0; i<node->interaction->nto; ++i) {
         found = 0;
         for (j=0; j<ndecl_role; ++j) {
-          if (strcmp(decl_roles[j], node->interaction->to[i]) == 0)
+          if (strcmp(decl_roles[j]->name, node->interaction->to[i]) == 0)
             found = 1;
         }
         if (!found) {
@@ -81,7 +81,7 @@ int scribble_check_defined_roles_r(st_node *node, char **decl_roles, int ndecl_r
     case ST_NODE_CHOICE:
       found = 0;
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j], node->choice->at) == 0)
+        if (strcmp(decl_roles[j]->name, node->choice->at) == 0)
           found = 1;
       }
       if (!found) {

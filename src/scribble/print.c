@@ -408,14 +408,17 @@ void scribble_fprint(FILE *stream, st_tree *tree)
     scribble_fprintf(stream, ";\n");
   }
 
-  if (tree->info->global) {
+  if (ST_TYPE_GLOBAL == tree->info->type) {
     scribble_fprintf(stream, "global protocol %s ", tree->info->name);
-  } else {
+  } else if (ST_TYPE_LOCAL == tree->info->type || ST_TYPE_PARAMETRISED == tree->info->type) {
     scribble_fprintf(stream, "local protocol %s at %s ", tree->info->name, tree->info->myrole);
-  }
+  } else assert(1/* unrecognised type */);
   scribble_fprintf(stream, "(");
   for (i=0; i<tree->info->nrole; ++i) {
-    scribble_fprintf(stream, "role %s", tree->info->roles[i]);
+    scribble_fprintf(stream, "role %s", tree->info->roles[i]->name);
+    if (tree->info->roles[i]->idxcount == 2) {
+      scribble_fprintf(stream, "[i:%lu..%lu]", tree->info->roles[i]->indices[0], tree->info->roles[i]->indices[1]);
+    }
     if (i != tree->info->nrole-1) {
       scribble_fprintf(stream, ", ");
     }

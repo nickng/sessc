@@ -332,7 +332,7 @@ st_tree *scribble_project(st_tree *global, char *projectrole)
 {
   int i;
 
-  if (!global->info->global) {
+  if (ST_TYPE_GLOBAL != global->info->type) {
     fprintf(stderr, "Warn: Not projecting for endpoint protocol.\n");
     return global;
   }
@@ -343,17 +343,27 @@ st_tree *scribble_project(st_tree *global, char *projectrole)
   strcpy(local->info->myrole, projectrole);
 
   st_tree_set_name(local, global->info->name);
-  local->info->global = 0;
+  local->info->type = ST_TYPE_LOCAL;
   // Copy imports over.
   for (i=0; i<global->info->nimport; ++i) {
     st_tree_add_import(local, *(global->info->imports[i]));
   }
   // Copy roles over.
   for (i=0; i<global->info->nrole; ++i) {
-    if (strcmp(global->info->roles[i], projectrole) == 0) {
+    if (strcmp(global->info->roles[i]->name, projectrole) == 0) {
+      if (global->info->roles[i]->idxcount == 2) {
+        local->info->type = ST_TYPE_PARAMETRISED;
+        assert(global->info->roles[i]->indices[0]<1000 && global->info->roles[i]->indices[1]<1000);
+        local->info->myrole = (char *)realloc(local->info->myrole, sizeof(char) * (strlen(projectrole)+4+6+1));
+        sprintf(local->info->myrole,"%s[%lu..%lu]", projectrole, global->info->roles[i]->indices[0], global->info->roles[i]->indices[1]);
+      }
       continue;
     }
-    st_tree_add_role(local, global->info->roles[i]);
+    if (global->info->roles[i]->idxcount == 0) {
+      st_tree_add_role(local, global->info->roles[i]->name);
+    } else if (global->info->roles[i]->idxcount == 2) {
+      st_tree_add_role_param(local, global->info->roles[i]->name, global->info->roles[i]->indices[0], global->info->roles[i]->indices[1]);
+    } else assert(1/*Not a valid role*/);
   }
   assert(global->info->nrole == local->info->nrole+1);
 

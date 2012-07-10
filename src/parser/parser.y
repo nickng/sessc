@@ -112,7 +112,7 @@ message_payload             :   LPAREN RPAREN       { $$ = ""; }
 
 /* --------------------------- Global Protocol --------------------------- */
 
-global_prot_decls           :   GLOBAL PROTOCOL IDENT LPAREN role_decl_list RPAREN global_prot_body { st_tree_set_name(tree, $3); tree->info->global = 1; }
+global_prot_decls           :   GLOBAL PROTOCOL IDENT LPAREN role_decl_list RPAREN global_prot_body { st_tree_set_name(tree, $3); tree->info->type = ST_TYPE_GLOBAL; }
                             ;
 
 role_decl_list              :
@@ -120,7 +120,7 @@ role_decl_list              :
                             |   role_decl_list COMMA role_decl  
                             ;
 
-role_decl                   :   ROLE role_name role_param_range { st_tree_add_role(tree, $2); /*TODO*/ }
+role_decl                   :   ROLE role_name role_param_range { st_tree_add_role_param(tree, $2, $3->params[0], $3->params[$3->count-1]); }
                             |   ROLE role_name                  { st_tree_add_role(tree, $2); }
                             ;
 
@@ -376,10 +376,17 @@ continue                    :   CONTINUE IDENT SEMICOLON {
 /* --------------------------- Local Protocols --------------------------- */
 
 local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_decl_list RPAREN local_prot_body  { 
-                                                                                                                    st_tree_set_name(tree, $3);
-                                                                                                                    tree->info->global = 0;
-                                                                                                                    tree->info->myrole = strdup($5);
+                                                                                                                  st_tree_set_name(tree, $3);
+                                                                                                                  tree->info->type = ST_TYPE_LOCAL;
+                                                                                                                  tree->info->myrole = strdup($5);
                                                                                                                 }
+                            |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE DIGITS RSQUARE LPAREN role_decl_list RPAREN local_prot_body  { 
+                                                                                                                                   st_tree_set_name(tree, $3);
+                                                                                                                                   tree->info->type = ST_TYPE_PARAMETRISED;
+                                                                                                                                   assert($7<1000 && $9<1000);
+                                                                                                                                   tree->info->myrole = (char *)calloc(sizeof(char), strlen($5)+4+6+1);
+                                                                                                                                   sprintf(tree->info->myrole, "%s[%lu..%lu]", $5, $7, $9);
+                                                                                                                                 }
                             ;
 
 /* --------------------------- Local Interaction Blocks and Sequences --------------------------- */

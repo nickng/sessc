@@ -91,14 +91,16 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
   assert(tree != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
-    tree->info->roles = (char **)malloc(sizeof(char *));
+    tree->info->roles = (parametrised_role_t **)malloc(sizeof(parametrised_role_t *));
   } else if (tree->info->nrole > 0) {
     // Allocate for n+1 element.
-    tree->info->roles = (char **)realloc(tree->info->roles, sizeof(char *) * (tree->info->nrole+1));
+    tree->info->roles = (parametrised_role_t **)realloc(tree->info->roles, sizeof(parametrised_role_t *) * (tree->info->nrole+1));
   }
 
-  tree->info->roles[tree->info->nrole] = (char *)calloc(sizeof(char), strlen(role)+1);
-  strcpy(tree->info->roles[tree->info->nrole], role);
+  tree->info->roles[tree->info->nrole] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+  tree->info->roles[tree->info->nrole]->name = (char *)calloc(sizeof(char), strlen(role)+1);
+  strcpy(tree->info->roles[tree->info->nrole]->name, role);
+  tree->info->roles[tree->info->nrole]->idxcount = 0;
 
   tree->info->nrole++;
 
@@ -106,10 +108,28 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
 }
 
 
-st_tree *st_tree_add_role_param(st_tree *tree, const char *role, const parametrised_role_t *param)
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, unsigned long from, unsigned long to)
 {
-  // TODO Store param
-  return st_tree_add_role(tree, role);
+  assert(tree != NULL);
+  if (tree->info->nrole == 0) {
+    // Allocate for 1 element.
+    tree->info->roles = (parametrised_role_t **)malloc(sizeof(parametrised_role_t *));
+  } else if (tree->info->nrole > 0) {
+    // Allocate for n+1 element.
+    tree->info->roles = (parametrised_role_t **)realloc(tree->info->roles, sizeof(parametrised_role_t *) * (tree->info->nrole+1));
+  }
+
+  tree->info->roles[tree->info->nrole] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
+  tree->info->roles[tree->info->nrole]->name = (char *)calloc(sizeof(char), strlen(role)+1);
+  strcpy(tree->info->roles[tree->info->nrole]->name, role);
+  tree->info->roles[tree->info->nrole]->idxcount = 2;
+  tree->info->roles[tree->info->nrole]->indices = (long *)calloc(sizeof(long), 2);
+  tree->info->roles[tree->info->nrole]->indices[0] = from;
+  tree->info->roles[tree->info->nrole]->indices[1] = to;
+
+  tree->info->nrole++;
+
+  return tree;
 }
 
 
@@ -206,8 +226,16 @@ void st_tree_print(const st_tree *tree)
 
   if (tree->info != NULL) {
     printf("Protocol: %s\n", tree->info->name);
-    printf("%s protocol\n", tree->info->global ? "Global" : "Endpoint");
-    if (!tree->info->global) {
+    if (ST_TYPE_GLOBAL == tree->info->type) {
+      printf("Global");
+    } else if (ST_TYPE_LOCAL == tree->info->type) {
+      printf("Local");
+    } else if (ST_TYPE_PARAMETRISED == tree->info->type) {
+      printf("Parametrised local");
+    } else assert(1/* unrecognised type */);
+    printf(" protocol\n");
+
+    if (ST_TYPE_GLOBAL != tree->info->type) {
       printf("Endpoint role: %s\n", tree->info->myrole);
     }
     printf("Imports: [\n");
@@ -215,9 +243,13 @@ void st_tree_print(const st_tree *tree)
       printf("  { name: %s, as: %s, from: %s }\n", tree->info->imports[i]->name, tree->info->imports[i]->as, tree->info->imports[i]->from);
     printf("]\n");
     printf("Roles: [");
-    for (i=0; i<tree->info->nrole; ++i)
-      printf("%s ", tree->info->roles[i]);
-    printf("]\n");
+    for (i=0; i<tree->info->nrole; ++i) {
+      printf(" %s", tree->info->roles[i]->name);
+      if (tree->info->roles[i]->idxcount > 0) {
+        printf("/%lu..%lu", tree->info->roles[i]->indices[0], tree->info->roles[i]->indices[1]);
+      }
+    }
+    printf(" ]\n");
   } else {
     printf("Protocol info not found\n");
   }

@@ -138,7 +138,7 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 
 
   // Sanity check.
-  if (tree->info->global) {
+  if (ST_TYPE_GLOBAL == tree->info->type) {
     fprintf(stderr, "Error: %s is a Global protocol\n", scribble);
     return;
   }
@@ -254,8 +254,8 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
     sess->roles[role_idx]->s = sess;
     sess->roles[role_idx]->p2p = (struct role_endpoint *)malloc(sizeof(struct role_endpoint));
 
-    sess->roles[role_idx]->p2p->name = (char *)calloc(sizeof(char), strlen(tree->info->roles[role_idx])+1);
-    strcpy(sess->roles[role_idx]->p2p->name, tree->info->roles[role_idx]);
+    sess->roles[role_idx]->p2p->name = (char *)calloc(sizeof(char), strlen(tree->info->roles[role_idx]->name)+1);
+    strcpy(sess->roles[role_idx]->p2p->name, tree->info->roles[role_idx]->name);
 
     for (conn_idx=0; conn_idx<nconns; conn_idx++) { // Look for matching connection parameter
 

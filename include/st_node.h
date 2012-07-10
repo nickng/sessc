@@ -27,6 +27,10 @@ extern "C" {
 #define ST_ROLE_NORMAL       0
 #define ST_ROLE_PARAMETRISED 1
 
+#define ST_TYPE_LOCAL        0
+#define ST_TYPE_GLOBAL       1
+#define ST_TYPE_PARAMETRISED 2
+
 
 typedef struct {
   char *name;
@@ -106,12 +110,12 @@ struct __st_node {
 typedef struct {
   char *name;
   int nrole;
-  char **roles;
+  parametrised_role_t **roles;
 
   int nimport;
   st_tree_import_t **imports;
 
-  int global;
+  int type; // Session Tree type: global/local/parametrised-local
   char *myrole;
 } st_info;
 
@@ -176,15 +180,19 @@ st_tree *st_tree_set_name(st_tree *tree, const char *name);
  */
 st_tree *st_tree_add_role(st_tree *tree, const char *role);
 
+
 /**
  * \brief Add a role (with parameter) to protocol.
  *
  * @param[in,out] tree Session type tree of protocol.
  * @param[in]     role Role name to add.
+ * @param[in]     from beginning of index range of parametrised role
+ * @param[in]     to   ending of index range of parametrised role
  *
  * \returns Updated session types tree.
  */
-st_tree *st_tree_add_role_param(st_tree *tree, const char *role, const parametrised_role_t *param);
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, unsigned long from, unsigned long to);
+
 
 /**
  * \brief Add an import to protocol.
