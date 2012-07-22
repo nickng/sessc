@@ -35,7 +35,6 @@ int main(int argc, char *argv[])
 
   zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "", 0);
 
-  int i;
   int *val = (int *)calloc(N, sizeof(int));
   zmq_msg_t msg;
 
@@ -58,11 +57,14 @@ int main(int argc, char *argv[])
 
   printf("%s: Time elapsed: %f sec\n", argv[0], sc_time_diff(start_time, end_time));
 
+#ifdef __DEBUG__
+  int i;
   printf("%s [ ", argv[0]);
   for (i=0; i<N; ++i) {
     printf("%d ", val[i]);
   }
   printf("]\n");
+#endif
 
   free(val);
   zmq_close(sub);

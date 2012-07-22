@@ -1,7 +1,7 @@
 ROOT := ../..
 include $(ROOT)/Common.mk
 
-all: mpi zmq0 zmq1
+all: mpi zmq0 zmq1 zmq0_p2p zmq1_p2p
 
 %: %.c
 	$(CC) $(CFLAGS) -o $* $*.c $(LDFLAGS)
