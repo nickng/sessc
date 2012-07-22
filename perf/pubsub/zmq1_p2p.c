@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include <zmq.h>
 #include <sc/utils.h>
@@ -20,36 +21,29 @@ int main(int argc, char *argv[])
   printf("N: %d\n", N);
 
   void *ctx = zmq_init(1);
-  void *pub = zmq_socket(ctx, ZMQ_PUB); // Output channel of 0
-  assert(pub);
-  void *sub = zmq_socket(ctx, ZMQ_SUB); // Input channel of 0
-  assert(sub);
+  void *client = zmq_socket(ctx, ZMQ_PAIR); // Client
+  assert(client);
 
   int rc;
-  rc = zmq_bind(sub, "tcp://*:8887"); // Waits for publishers
+  rc = zmq_bind(client, "tcp://*:8889");
   assert(rc == 0);
-
-  rc = zmq_connect(pub, "tcp://localhost:8888"); // Actively connect to subscribers
-  assert(rc == 0);
-
-  zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "", 0);
 
   int *val = (int *)calloc(N, sizeof(int));
   zmq_msg_t msg;
 
   long long start_time = sc_time();
 
+  // Receive
+  zmq_msg_init(&msg);
+  zmq_recv(client, &msg, 0);
+  memcpy(val, (int *)zmq_msg_data(&msg), zmq_msg_size(&msg));
+  zmq_msg_close(&msg);
+
   // Send
   int *buf = (int *)calloc(N, sizeof(int));
   memcpy(buf, val, N * sizeof(int));
   zmq_msg_init_data(&msg, buf, N * sizeof(int), _dealloc, NULL);
-  zmq_send(pub, &msg, 0);
-  zmq_msg_close(&msg);
-
-  // Receive
-  zmq_msg_init(&msg);
-  zmq_recv(sub, &msg, 0);
-  memcpy(val, (int *)zmq_msg_data(&msg), zmq_msg_size(&msg));
+  zmq_send(client, &msg, 0);
   zmq_msg_close(&msg);
 
   long long end_time = sc_time();
@@ -66,8 +60,7 @@ int main(int argc, char *argv[])
 #endif
 
   free(val);
-  zmq_close(sub);
-  zmq_close(pub);
+  zmq_close(client);
   zmq_term(ctx);
 
   return EXIT_SUCCESS;

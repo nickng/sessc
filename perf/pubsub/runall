@@ -6,5 +6,9 @@ mpirun -np 2 ./mpi $*
 echo
 echo ZMQ TCP
 echo
-./runzmq.sh $*
+./runzmq $*
+echo
+echo ZMQ TCP P2P
+echo
+./runzmq_p2p $*
 echo

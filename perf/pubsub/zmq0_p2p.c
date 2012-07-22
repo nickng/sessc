@@ -20,19 +20,12 @@ int main(int argc, char *argv[])
   printf("N: %d\n", N);
 
   void *ctx = zmq_init(1);
-  void *pub = zmq_socket(ctx, ZMQ_PUB); // Output channel of 0
-  assert(pub);
-  void *sub = zmq_socket(ctx, ZMQ_SUB); // Input channel of 0
-  assert(sub);
+  void *server = zmq_socket(ctx, ZMQ_PAIR); // Server
+  assert(server);
 
   int rc;
-  rc = zmq_bind(sub, "tcp://*:8887"); // Waits for publishers
+  rc = zmq_connect(server, "tcp://localhost:8889"); // Actively connect to subscribers
   assert(rc == 0);
-
-  rc = zmq_connect(pub, "tcp://localhost:8888"); // Actively connect to subscribers
-  assert(rc == 0);
-
-  zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "", 0);
 
   int *val = (int *)calloc(N, sizeof(int));
   zmq_msg_t msg;
@@ -43,12 +36,12 @@ int main(int argc, char *argv[])
   int *buf = (int *)calloc(N, sizeof(int));
   memcpy(buf, val, N * sizeof(int));
   zmq_msg_init_data(&msg, buf, N * sizeof(int), _dealloc, NULL);
-  zmq_send(pub, &msg, 0);
+  zmq_send(server, &msg, 0);
   zmq_msg_close(&msg);
 
   // Receive
   zmq_msg_init(&msg);
-  zmq_recv(sub, &msg, 0);
+  zmq_recv(server, &msg, 0);
   memcpy(val, (int *)zmq_msg_data(&msg), zmq_msg_size(&msg));
   zmq_msg_close(&msg);
 
@@ -66,8 +59,7 @@ int main(int argc, char *argv[])
 #endif
 
   free(val);
-  zmq_close(sub);
-  zmq_close(pub);
+  zmq_close(server);
   zmq_term(ctx);
 
   return EXIT_SUCCESS;
