@@ -1,0 +1,4 @@
+Pub-Sub example
+===============
+
+This is an example to examine the performance of 0MQ pub-sub vs. MPI broadcast.
