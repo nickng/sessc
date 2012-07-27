@@ -4,7 +4,7 @@ include $(ROOT)/Common.mk
 OBJS := $(BUILD_DIR)/session.o $(BUILD_DIR)/primitives.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o $(BUILD_DIR)/st_node.o $(BUILD_DIR)/connmgr.o
 LDFLAGS += -lzmq
 
-all: $(BUILD_DIR)/libsc.a 
+all: $(OBJS) $(BUILD_DIR)/libsc.a
 
 # Override runtime build rules (header files under sc/)
 $(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/sc/%.h
