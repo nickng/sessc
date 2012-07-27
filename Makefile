@@ -27,6 +27,7 @@ runtime:
 	$(MAKE) --directory=$(SRC_DIR)/scribble
 	$(MAKE) --directory=$(SRC_DIR)/connmgr
 	$(MAKE) --directory=$(SRC_DIR)/runtime
+	$(MAKE) --directory=$(SRC_DIR)/runtime-mpi
 
 docs:
 	$(DOXYGEN) sessc.doxygen
