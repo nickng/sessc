@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
   printf("N: %d\n", N);
 
   void *ctx = zmq_init(1);
-  void *client = zmq_socket(ctx, ZMQ_PAIR); // Client
+  void *client = zmq_socket(ctx, ZMQ_REP); // Client
   assert(client);
 
   int rc;

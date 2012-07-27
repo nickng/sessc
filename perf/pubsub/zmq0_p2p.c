@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
   printf("N: %d\n", N);
 
   void *ctx = zmq_init(1);
-  void *server = zmq_socket(ctx, ZMQ_PAIR); // Server
+  void *server = zmq_socket(ctx, ZMQ_REQ); // Server
   assert(server);
 
   int rc;
