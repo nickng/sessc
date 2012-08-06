@@ -2,7 +2,7 @@
 #define SC__TYPES_MPI_H__
 /**
  * \file
- * Session C runtime library (libsc)
+ * Session C runtime library MPI backend (libsc-mpi)
  * type definitions (MPI version).
  */
 
@@ -12,6 +12,17 @@
 #define SESSION_ROLE_GRP     1
 
 
+/**
+ * For request tracking.
+ *
+ */
+typedef struct {
+  int nsend;
+  MPI_Request *send_reqs;
+  void **send_bufs;
+} sc_req_tbl_t;
+
+
 struct role_endpoint
 {
   char *name;
@@ -19,11 +30,13 @@ struct role_endpoint
   MPI_Comm comm; // MPI Communicator
 };
 
+
 struct role_group
 {
   char *name;
   MPI_Comm comm; // MPI Communicator
 };
+
 
 /**
  * An endpoint.
@@ -48,6 +61,7 @@ struct role_t
 
 typedef struct role_t role;
 
+
 /**
  * An endpoint session.
  *
@@ -56,11 +70,11 @@ typedef struct role_t role;
  */
 struct session_t
 {
-  int nrole; // # of roles in session (size)
+  int nrole; // # of roles (expanded) in session (size)
   role **roles; // Pointers to roles in session
   char *name;
   int is_parametrised;
-  int rank; // My rank
+  int myrole; // My rank
 
   // Lookup functions.
   role *(*r)(struct session_t *, char *); // P2P and Group role

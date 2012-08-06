@@ -2,7 +2,7 @@
 #define SC__SESSION_MPI_H__
 /**
  * \file
- * Session C runtime library (libsc)
+ * Session C runtime library MPI backend (libsc-mpi)
  * session handling module.
  *
  * This includes initialisation and finalisation routines
@@ -19,8 +19,10 @@
  * @param[out]    s        Pointer to session varible to create
  * @param[in]     scribble Endpoint Scribble file path for this session
  *                         (Must be constant string)
+ *
+ * \returns 0 if successful, errno otherwise.
  */
-void session_init(int *argc, char ***argv, session **s, const char *scribble);
+int session_init(int *argc, char ***argv, session **s, const char *scribble);
 
 
 /**
