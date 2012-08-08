@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
   int val[M];
   double start_time = MPI_Wtime();
-
+  
   int i;
   for (i=0; i<N; i++) {
     if (rank == 0) {
