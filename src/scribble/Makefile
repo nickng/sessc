@@ -5,7 +5,8 @@
 ROOT := ../..
 include $(ROOT)/Common.mk
 
-OBJECTS = check.o canonicalise.o print.o project.o parser.o lexer.o st_node.o
+OBJECTS = check.o canonicalise.o print.o \
+		   parser.o lexer.o st_node.o
 OBJS    = $(addprefix $(BUILD_DIR)/,$(OBJECTS))
 
 all: project-tool scribble-tool

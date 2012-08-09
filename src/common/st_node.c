@@ -91,16 +91,15 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
   assert(tree != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
-    tree->info->roles = (parametrised_role_t **)malloc(sizeof(parametrised_role_t *));
+    tree->info->roles = (st_role_t **)malloc(sizeof(st_role_t *));
   } else if (tree->info->nrole > 0) {
     // Allocate for n+1 element.
-    tree->info->roles = (parametrised_role_t **)realloc(tree->info->roles, sizeof(parametrised_role_t *) * (tree->info->nrole+1));
+    tree->info->roles = (st_role_t **)realloc(tree->info->roles, sizeof(st_role_t *) * (tree->info->nrole+1));
   }
 
-  tree->info->roles[tree->info->nrole] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-  tree->info->roles[tree->info->nrole]->name = (char *)calloc(sizeof(char), strlen(role)+1);
-  strcpy(tree->info->roles[tree->info->nrole]->name, role);
-  tree->info->roles[tree->info->nrole]->idxcount = 0;
+  tree->info->roles[tree->info->nrole] = (st_role_t *)malloc(sizeof(st_role_t));
+  tree->info->roles[tree->info->nrole]->name = strdup(role);
+  tree->info->roles[tree->info->nrole]->param = NULL; // Non-parametrised
 
   tree->info->nrole++;
 
@@ -108,24 +107,20 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
 }
 
 
-st_tree *st_tree_add_role_param(st_tree *tree, const char *role, unsigned long from, unsigned long to)
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, st_expr_t *param)
 {
   assert(tree != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
-    tree->info->roles = (parametrised_role_t **)malloc(sizeof(parametrised_role_t *));
+    tree->info->roles = (st_role_t **)malloc(sizeof(st_role_t *));
   } else if (tree->info->nrole > 0) {
     // Allocate for n+1 element.
-    tree->info->roles = (parametrised_role_t **)realloc(tree->info->roles, sizeof(parametrised_role_t *) * (tree->info->nrole+1));
+    tree->info->roles = (st_role_t **)realloc(tree->info->roles, sizeof(st_role_t *) * (tree->info->nrole+1));
   }
 
-  tree->info->roles[tree->info->nrole] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-  tree->info->roles[tree->info->nrole]->name = (char *)calloc(sizeof(char), strlen(role)+1);
-  strcpy(tree->info->roles[tree->info->nrole]->name, role);
-  tree->info->roles[tree->info->nrole]->idxcount = 2;
-  tree->info->roles[tree->info->nrole]->indices = (long *)calloc(sizeof(long), 2);
-  tree->info->roles[tree->info->nrole]->indices[0] = from;
-  tree->info->roles[tree->info->nrole]->indices[1] = to;
+  tree->info->roles[tree->info->nrole] = (st_role_t *)malloc(sizeof(st_role_t));
+  tree->info->roles[tree->info->nrole]->name = strdup(role);
+  tree->info->roles[tree->info->nrole]->param = param;
 
   tree->info->nrole++;
 
@@ -169,10 +164,7 @@ st_node *st_node_init(st_node *node, int type)
     case ST_NODE_SEND:
     case ST_NODE_RECV:
       node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
-      // Defaults role type to non-parametrised
-      node->interaction->to_type = ST_ROLE_NORMAL;
-      node->interaction->from_type = ST_ROLE_NORMAL;
-      node->interaction->msg_cond = NULL;
+      //node->interaction->msg_cond = NULL; TODO
       break;
     case ST_NODE_PARALLEL:
       break;
@@ -245,8 +237,10 @@ void st_tree_print(const st_tree *tree)
     printf("Roles: [");
     for (i=0; i<tree->info->nrole; ++i) {
       printf(" %s", tree->info->roles[i]->name);
-      if (tree->info->roles[i]->idxcount > 0) {
-        printf("/%lu..%lu", tree->info->roles[i]->indices[0], tree->info->roles[i]->indices[1]);
+      if (NULL != tree->info->roles[i]->param) {
+        printf("[");
+        st_expr_print(tree->info->roles[i]->param);
+        printf("]");
       }
     }
     printf(" ]\n");
@@ -296,100 +290,73 @@ void st_node_print(const st_node *node, int indent)
 
       case ST_NODE_SENDRECV: // ---------- SENDRECV ----------
 
-        printf("Node { type: interaction, from: ");
-        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // ST_ROLE_PARAMETRISED
-          printf("%s[%s:", node->interaction->p_from->name, node->interaction->p_from->bindvar);
-          for (j=0; j<node->interaction->p_from->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->p_from->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
+        printf("Node { type: interaction, from: %s", node->interaction->from->name);
+        if (NULL != node->interaction->from->param) {
+          printf("[");
+          st_expr_print(node->interaction->from->param);
           printf("]");
-        } else { // ST_ROLE_NORMAL
-          printf("%s", node->interaction->from);
         }
+
         printf(", to(%d): ", node->interaction->nto);
-        if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // ST_ROLE_PARAMETRISED
-          printf("[%s[%s:", node->interaction->p_to[0]->name, node->interaction->p_to[0]->bindvar);
-          for (j=0; j<node->interaction->p_to[0]->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->p_to[0]->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
-          printf("] ..]");
-        } else { // ST_ROLE_NORMAL
-          printf("[%s ..]", node->interaction->to[0]);
+        printf("[%s", node->interaction->to[0]->name);
+        if (NULL != node->interaction->to[0]->param) {
+          printf("[");
+          st_expr_print(node->interaction->to[0]->param);
+          printf("]");
         }
+        printf(" ..]");
+
         printf(", msgsig: { op: %s, payload: %s }}\n", node->interaction->msgsig.op, node->interaction->msgsig.payload);
         break;
 
       case ST_NODE_SEND: // ---------- SEND ----------
         printf("Node { type: send, to: ");
-        if (ST_ROLE_PARAMETRISED == node->interaction->to_type) { // ST_ROLE_PARAMETRISED
-          printf("[%s[%s:", node->interaction->p_to[0]->name, node->interaction->p_to[0]->bindvar);
-          for (j=0; j<node->interaction->p_to[0]->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->p_to[0]->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
-          printf("] ..]");
-        } else { // ST_ROLE_NORMAL
-          printf("[%s ..]", node->interaction->to[0]);
-        }
-        printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
-        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
-          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
-          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->msg_cond->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
+        printf(", to(%d): ", node->interaction->nto);
+        printf("[%s", node->interaction->to[0]->name);
+        if (NULL != node->interaction->to[0]->param) {
+          printf("[");
+          st_expr_print(node->interaction->to[0]->param);
           printf("]");
-        } // if msg_cond
+        }
+        printf(" ..]");
+
+        printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
+//        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+//          printf(", cond: %s", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
+//          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+//            if (j != 0) printf(",");
+//            printf("%ld", node->interaction->msg_cond->indices[j]);
+//            if (j > 4) {
+//              printf(",...");
+//              break;
+//            }
+//          }
+//          printf("]");
+//        } // if msg_cond
         printf("}\n");
         break;
 
       case ST_NODE_RECV: // ----------- RECV -----------
-        printf("Node { type: recv, from: ");
-        if (ST_ROLE_PARAMETRISED == node->interaction->from_type) { // ST_ROLE_PARAMETRISED
-          printf("%s[%s:", node->interaction->p_from->name, node->interaction->p_from->bindvar);
-          for (j=0; j<node->interaction->p_from->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->p_from->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
+        printf("Node { type: recv, from: %s", node->interaction->from->name);
+        if (NULL != node->interaction->from->param) {
+          printf("[");
+          st_expr_print(node->interaction->from->param);
           printf("]");
-        } else { // ST_ROLE_NORMAL
-          printf("%s", node->interaction->from);
         }
+
         printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
-        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
-          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
-          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-            if (j != 0) printf(",");
-            printf("%ld", node->interaction->msg_cond->indices[j]);
-            if (j > 4) {
-              printf(",...");
-              break;
-            }
-          }
-          printf("]");
-        } // if msg_cond
+//        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+//          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
+//          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
+//            if (j != 0) printf(",");
+//            printf("%ld", node->interaction->msg_cond->indices[j]);
+//            if (j > 4) {
+//              printf(",...");
+//              break;
+//            }
+//          }
+//          printf("]");
+//        } // if msg_cond
         printf("}\n");
         break;
 
@@ -455,13 +422,13 @@ int st_node_compare_async(const st_node *node, const st_node *other)
   search_to   = node->nchild;
 
   for (i=0; i<node->nchild; ++i) {
-    if ((ST_NODE_SEND == node->children[i]->type && ST_ROLE_NORMAL == node->interaction->to_type)
-       ||(ST_NODE_RECV == node->children[i]->type && ST_ROLE_NORMAL == node->interaction->from_type)) {
+    if ((ST_NODE_SEND == node->children[i]->type && NULL == node->interaction->to[0]->param) // NORMAL
+       ||(ST_NODE_RECV == node->children[i]->type && NULL == node->interaction->from->param)) { // NORMAL
       search_from = i;
       for (j=i+1; j<node->nchild; ++j) {
         if ((ST_NODE_SEND != node->children[j]->type && ST_NODE_RECV != node->children[j]->type)
-           ||(ST_ROLE_NORMAL != node->interaction->from_type) // Note: order does matter
-           ||(ST_ROLE_NORMAL != node->interaction->to_type)) {
+           ||(NULL != node->interaction->from->param) // Note: order does matter
+           ||(NULL != node->interaction->to[0]->param)) {
           search_to = j;
           break;
         }
@@ -489,7 +456,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
         // Case 1: RECV in the same channel.
         if (visited[j] == 0
             && ST_NODE_RECV == other->children[j]->type // Recv node
-            && 0 == strcmp(node->children[i]->interaction->from, other->children[j]->interaction->from)) { // same role (ie. channel)
+            && 0 == strcmp(node->children[i]->interaction->from->name, other->children[j]->interaction->from->name)) { // same role (ie. channel)
           if (st_node_compare_msgsig(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
             // Matching SEND node
             visited[j] = 1;
@@ -507,7 +474,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
         // Case 2: SEND in same channel.
         if (visited[j] == 0
             && ST_NODE_SEND == other->children[j]->type // Send node
-            && 0 == strcmp(node->children[i]->interaction->from, other->children[j]->interaction->to[0])) { // same role (ie. channel)
+            && 0 == strcmp(node->children[i]->interaction->from->name, other->children[j]->interaction->to[0]->name)) { // same role (ie. channel)
           // Same channel SEND is allowed.
           // TODO: Check all to-targets
           continue;
@@ -535,7 +502,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
         // Case 1: SEND in the same channel.
         if (visited[j] == 0
             && ST_NODE_SEND == other->children[j]->type
-            && 0 == strcmp(node->children[i]->interaction->to[0], other->children[j]->interaction->to[0])) { // same role (ie. channel)
+            && 0 == strcmp(node->children[i]->interaction->to[0]->name, other->children[j]->interaction->to[0]->name)) { // same role (ie. channel)
           // TODO: check all to-targets
           if (st_node_compare_msgsig(node->children[i]->interaction->msgsig, other->children[j]->interaction->msgsig)) {
             // Matching SEND node
@@ -554,7 +521,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
         // Caes 2: RECV node in same channel
         if (visited[j] == 0
             && ST_NODE_RECV == other->children[j]->type
-            && 0 == strcmp(node->children[i]->interaction->to[0], other->children[j]->interaction->from)) {
+            && 0 == strcmp(node->children[i]->interaction->to[0]->name, other->children[j]->interaction->from->name)) {
           // Don't allow RECV-SEND overtake in the same channel
           node->children[i]->marked = 1;
           other->children[j]->marked = 1;
@@ -615,6 +582,7 @@ int st_node_compare_msgsig(const st_node_msgsig_t msgsig, const st_node_msgsig_t
 int st_node_compare(st_node *node, st_node *other)
 {
   int identical = 1;
+/* TODO
   if (node != NULL && other != NULL) {
     identical = (node->type == other->type && node->nchild == other->nchild);
 
@@ -722,6 +690,63 @@ int st_node_compare(st_node *node, st_node *other)
     }
 
   }
-
+*/
   return identical;
+}
+
+
+inline st_expr_t *st_expr_constant(int val)
+{
+  st_expr_t *_ = (st_expr_t *)malloc(sizeof(st_expr_t));
+  _->type = ST_EXPR_TYPE_CONST;
+  _->constant = val;
+  return _;
+}
+
+
+inline st_expr_t *st_expr_variable(char *var)
+{
+  st_expr_t *_ = (st_expr_t *)malloc(sizeof(st_expr_t));
+  _->type = ST_EXPR_TYPE_VAR;
+  _->variable = strdup(var);
+  return _;
+}
+
+
+inline st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right)
+{
+  st_expr_t *_ = (st_expr_t *)malloc(sizeof(st_expr_t));
+  _->type = type;
+  _->binexpr = (st_bin_expr_t *)malloc(sizeof(st_bin_expr_t));
+  _->binexpr->left = left;
+  _->binexpr->right = right;
+  return _;
+}
+
+void st_expr_print(st_expr_t *e)
+{
+  assert(e->type > 0);
+  switch (e->type) {
+    case ST_EXPR_TYPE_RANGE:
+      st_expr_print(e->binexpr->left);
+      printf("..");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_PLUS:
+      st_expr_print(e->binexpr->left);
+      printf("+");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_MINUS:
+      st_expr_print(e->binexpr->left);
+      printf("-");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_CONST:
+      printf("%d", e->constant);
+      break;
+    case ST_EXPR_TYPE_VAR:
+      printf("%s", e->variable);
+      break;
+  };
 }

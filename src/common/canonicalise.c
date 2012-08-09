@@ -226,7 +226,7 @@ st_node *st_node_label_recv_merge(st_node *node)
       // If recv(__LOCAL__, (label)__LABEL__), ie. label comparison
       if (_choice->children[i]->type == ST_NODE_RECV
           && strcmp(_choice->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
-          && strcmp(_choice->children[i]->interaction->from, "__LOCAL__") == 0) {
+          && strcmp(_choice->children[i]->interaction->from->name, "__LOCAL__") == 0) {
         if (_choice->children[i+1]->type == ST_NODE_RECV && _choice->children[i+1]->interaction->msgsig.op == NULL) {
           _choice->children[i+1]->interaction->msgsig.op = (char *)calloc(sizeof(char), strlen(_choice->children[i]->interaction->msgsig.op)+1);
           strcpy(_choice->children[i+1]->interaction->msgsig.op, _choice->children[i]->interaction->msgsig.op);
@@ -259,7 +259,7 @@ st_node *st_node_label_recv(st_node *node)
     if (node->children[i]->type == ST_NODE_RECV
         && strcmp(node->children[i]->interaction->msgsig.payload, "__LABEL__") == 0
         && node->children[i+1]->type == ST_NODE_CHOICE
-        && strcmp(node->children[i]->interaction->from, node->children[i+1]->choice->at) == 0) {
+        && strcmp(node->children[i]->interaction->from->name, node->children[i+1]->choice->at) == 0) {
       // Apply label-recv merging on children[i+1]
       st_node_free(node->children[i]);
       node->children[i] = st_node_label_recv_merge(node->children[i+1]);

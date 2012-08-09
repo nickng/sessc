@@ -16,7 +16,7 @@
 #include "scribble/check.h"
 
 
-static int scribble_check_defined_roles_r(st_node *node, parametrised_role_t **decl_roles, int ndecl_role)
+static int scribble_check_defined_roles_r(st_node *node, st_role_t **decl_roles, int ndecl_role)
 {
   int i, j;
   int found = 0;
@@ -30,11 +30,11 @@ static int scribble_check_defined_roles_r(st_node *node, parametrised_role_t **d
       for (i=0; i<node->interaction->nto; ++i) {
         found = 0;
         for (j=0; j<ndecl_role; ++j) {
-          if (strcmp(decl_roles[j]->name, node->interaction->to[i]) == 0)
+          if (strcmp(decl_roles[j]->name, node->interaction->to[i]->name) == 0)
             found = 1;
         }
         if (!found) {
-          fprintf(stderr, "%s: To #%d (%s) not declared\n", __FUNCTION__, i, node->interaction->to[i]);
+          fprintf(stderr, "%s: To #%d (%s) not declared\n", __FUNCTION__, i, node->interaction->to[i]->name);
           node->marked = 1;
           error = 1;
         }
@@ -43,33 +43,33 @@ static int scribble_check_defined_roles_r(st_node *node, parametrised_role_t **d
     case ST_NODE_RECV:
       found = 0;
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j]->name, node->interaction->from) == 0)
+        if (strcmp(decl_roles[j]->name, node->interaction->from->name) == 0)
           found = 1;
       }
       if (!found) {
-        fprintf(stderr, "%s: From (%s) not declared\n", __FUNCTION__, node->interaction->from);
+        fprintf(stderr, "%s: From (%s) not declared\n", __FUNCTION__, node->interaction->from->name);
         node->marked = 1;
         error = 1;
       }
       break;
     case ST_NODE_SENDRECV:
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j]->name, node->interaction->from) == 0)
+        if (strcmp(decl_roles[j]->name, node->interaction->from->name) == 0)
           found = 1;
       }
       if (!found) {
-        fprintf(stderr, "%s: From (%s) not declared\n", __FUNCTION__, node->interaction->from);
+        fprintf(stderr, "%s: From (%s) not declared\n", __FUNCTION__, node->interaction->from->name);
         node->marked = 1;
         error = 1;
       }
       for (i=0; i<node->interaction->nto; ++i) {
         found = 0;
         for (j=0; j<ndecl_role; ++j) {
-          if (strcmp(decl_roles[j]->name, node->interaction->to[i]) == 0)
+          if (strcmp(decl_roles[j]->name, node->interaction->to[i]->name) == 0)
             found = 1;
         }
         if (!found) {
-          fprintf(stderr, "%s: To #%d (%s) not declared\n", __FUNCTION__, i, node->interaction->to[i]);
+          fprintf(stderr, "%s: To #%d (%s) not declared\n", __FUNCTION__, i, node->interaction->to[i]->name);
           node->marked = 1;
           error = 1;
         }

@@ -20,6 +20,8 @@
  */
 int scribble_colour_mode(int colour_mode);
 
+void scribble_fprint_expr(FILE *stream, st_expr_t *expr);
+
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
 void scribble_fprint_send(FILE *stream, st_node *node, int indent);

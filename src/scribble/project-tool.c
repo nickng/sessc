@@ -22,12 +22,12 @@ int main(int argc, char *argv[])
   st_tree *g = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
   if (yyin == NULL) perror("fopen");
   yyparse(g);
-  st_tree *l = scribble_project(g, rolename);
+  //st_tree *l = scribble_project(g, rolename);
 
-  scribble_print(l);
+  //scribble_print(l);
 
   st_tree_free(g);
-  st_tree_free(l);
+  //st_tree_free(l);
 
   if (argc > 1)
     fclose(yyin);
