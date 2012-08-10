@@ -46,11 +46,14 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
   va_end(argptr);
 
   const char *scribble_keywords[] = {
-    "and",      "as",   "at",     "choice",
-    "continue", "from", "global", "import ",
-    "local",    "or",   "par",    "protocol",
-    "rec",      "role", "to",     "if",
-    NULL
+    "and", "as", "at", "by",
+    "catch", "choice", "create", "do",
+    "enter", "for", "from", "global",
+    "import", "instantiates", "interruptible", "local",
+    "or", "par", "protocol", "rec",
+    "role", "spawns", "throw", "to",
+    "with", "if", "const", "range",
+    "for", NULL
   };
 
   // Colour mode
@@ -134,6 +137,9 @@ void scribble_fprint_node(FILE *stream, st_node *node, int indent)
     case ST_NODE_CONTINUE:
       scribble_fprint_continue(stream, node, indent);
       break;
+    case ST_NODE_FOR:
+      scribble_fprint_for(stream, node, indent);
+      break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
   }
@@ -153,6 +159,11 @@ void scribble_fprint_expr(FILE *stream, st_expr_t *expr)
     case ST_EXPR_TYPE_PLUS:
       st_expr_print(expr->binexpr->left);
       scribble_fprintf(stream, "+");
+      st_expr_print(expr->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_TUPLE:
+      st_expr_print(expr->binexpr->left);
+      scribble_fprintf(stream, "][");
       st_expr_print(expr->binexpr->right);
       break;
     case ST_EXPR_TYPE_MINUS:
@@ -230,23 +241,12 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
   }
 
   // If
-//  if (node->interaction->msg_cond != NULL) {
-//      scribble_fprintf(stream, " if %s[%s:",
-//          node->interaction->msg_cond->name,
-//          node->interaction->msg_cond->bindvar);
-//      if (is_consecutive(node->interaction->msg_cond->indices, node->interaction->msg_cond->idxcount)) {
-//        scribble_fprintf(stream, "%d..%d",
-//            node->interaction->msg_cond->indices[0],
-//            node->interaction->msg_cond->indices[node->interaction->msg_cond->idxcount-1]);
-//      } else {
-//        for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-//            scribble_fprintf(stream, "%d",
-//                node->interaction->msg_cond->indices[j]);
-//            if (j!=node->interaction->msg_cond->idxcount-1) scribble_fprintf(stream, ",");
-//        }
-//      }
-//      scribble_fprintf(stream, "]");
-//  }
+  if (node->interaction->msg_cond != NULL) {
+    scribble_fprintf(stream, " if %s[",
+        node->interaction->msg_cond->name);
+    scribble_fprint_expr(stream, node->interaction->msg_cond->param);
+    scribble_fprintf(stream, "]");
+  }
 
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
@@ -270,24 +270,13 @@ void scribble_fprint_recv(FILE *stream, st_node *node, int indent)
     scribble_fprintf(stream, "]");
   }
 
-//  // If
-//  if (node->interaction->msg_cond != NULL) {
-//      scribble_fprintf(stream, " if %s[%s:",
-//          node->interaction->msg_cond->name,
-//          node->interaction->msg_cond->bindvar);
-//      if (is_consecutive(node->interaction->msg_cond->indices, node->interaction->msg_cond->idxcount)) {
-//        scribble_fprintf(stream, "%d..%d",
-//            node->interaction->msg_cond->indices[0],
-//            node->interaction->msg_cond->indices[node->interaction->msg_cond->idxcount-1]);
-//      } else {
-//        for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-//            scribble_fprintf(stream, "%d",
-//                node->interaction->msg_cond->indices[j]);
-//            if (j!=node->interaction->msg_cond->idxcount-1) scribble_fprintf(stream, ",");
-//        }
-//      }
-//      scribble_fprintf(stream, "]");
-//  }
+  // If
+  if (node->interaction->msg_cond != NULL) {
+    scribble_fprintf(stream, " if %s[",
+        node->interaction->msg_cond->name);
+    scribble_fprint_expr(stream, node->interaction->msg_cond->param);
+    scribble_fprintf(stream, "]");
+  }
 
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
 }
@@ -349,6 +338,22 @@ void scribble_fprint_continue(FILE *stream, st_node *node, int indent)
   for (i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
   scribble_fprintf(stream, "continue %s;%s\n", node->cont->label, node->marked ? " // <- HERE" : "");
+}
+
+
+void scribble_fprint_for(FILE *stream, st_node *node, int indent)
+{
+  assert(node != NULL && node->type == ST_NODE_FOR);
+  int i;
+  for (i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
+
+  scribble_fprintf(stream, "for (");
+  scribble_fprint_expr(stream, node->forloop->range);
+  scribble_fprintf(stream, ") %s ", node->marked ? " /* HERE */" : "");
+  for (i=0; i<node->nchild; ++i) {
+    scribble_fprint_node(stream, node->children[i], indent);
+  }
+  scribble_fprintf(stream, "\n");
 }
 
 

@@ -24,24 +24,27 @@ void yyerror(st_tree *tree, const char *s)
 %}
 
     /* Keywords */
-%token AND AS AT BY CATCH CHOICE CONTINUE CREATE DO ENTER FROM GLOBAL IMPORT INSTANTIATES INTERRUPTIBLE LOCAL OR PAR PROTOCOL REC ROLE SPAWNS THROW TO WITH IF CONST RANGE
+%token AND AS AT BY CATCH CHOICE CONTINUE CREATE DO ENTER FROM GLOBAL IMPORT INSTANTIATES INTERRUPTIBLE LOCAL OR PAR PROTOCOL REC ROLE SPAWNS THROW TO WITH IF CONST RANGE FOR
 
     /* Symbols */
-%token LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE LANGLE RANGLE COMMA COLON SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE MODULO NUMRANGE
+%token LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE LANGLE RANGLE COMMA COLON SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE MODULO SHL SHR NUMRANGE TUPLE
 
     /* Variables */
 %token <str> IDENT COMMENT
 %token <num> DIGITS
 
 %type <str> role_name message_operator message_payload type_decl_from type_decl_as
-%type <expr> role_param_range role_param_expr simple_expr role_param
+%type <expr> simple_expr role_param range_expr expr_expr tuple_expr
 %type <msg_cond> message_condition
-%type <node> message choice parallel recursion continue
+%type <node> message choice parallel recursion continue for
 %type <node> send receive l_choice l_parallel l_recursion
 %type <node> global_interaction global_interaction_blk and_global_interaction_blk or_global_interaction_blk
 %type <node> local_interaction  local_interaction_blk  and_local_interaction_blk  or_local_interaction_blk
 %type <node_list> global_interaction_seq local_interaction_seq
 %type <msgsig> message_signature
+
+%left PLUS MINUS
+%left MULTIPLY DIVIDE MODULO
 
 %code requires {
 #include "st_node.h"
@@ -133,8 +136,9 @@ role_decl_list              :
                             |   role_decl_list COMMA role_decl
                             ;
 
-role_decl                   :   ROLE role_name role_param_range { st_tree_add_role_param(tree, $2, $3); }
-                            |   ROLE role_name                  { st_tree_add_role(tree, $2); }
+role_decl                   :   ROLE role_name LSQUARE tuple_expr RSQUARE { st_tree_add_role_param(tree, $2, $4); }
+                            |   ROLE role_name LSQUARE range_expr RSQUARE { st_tree_add_role_param(tree, $2, $4); }
+                            |   ROLE role_name            { st_tree_add_role(tree, $2); }
                             ;
 
 role_name                   :   IDENT { $$ = $1; }
@@ -142,40 +146,52 @@ role_name                   :   IDENT { $$ = $1; }
 
 /* --------------------------- Parametrised roles --------------------------- */
 
-simple_expr                 :   IDENT              { $$ = st_expr_variable($1);                                                            }
-                            |   DIGITS             { $$ = st_expr_constant($1);                                                            }
-                            |   IDENT PLUS DIGITS  { $$ = st_expr_binexpr(st_expr_variable($1), ST_EXPR_TYPE_PLUS, st_expr_constant($3));  }
-                            |   DIGITS PLUS IDENT  { $$ = st_expr_binexpr(st_expr_constant($1), ST_EXPR_TYPE_PLUS, st_expr_variable($3));  }
-                            |   IDENT MINUS DIGITS { $$ = st_expr_binexpr(st_expr_variable($1), ST_EXPR_TYPE_MINUS, st_expr_constant($3)); }
+simple_expr                 :   IDENT                            { $$ = st_expr_variable($1);                          }
+                            |   DIGITS                           { $$ = st_expr_constant($1);                          }
+                            |   LPAREN simple_expr RPAREN        { $$ = $2;                                            }
+                            |   simple_expr PLUS     simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_PLUS, $3);    }
+                            |   simple_expr MINUS    simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_MINUS, $3);   }
+                            |   simple_expr MULTIPLY simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_MULTIPLY, $3);}
+                            |   simple_expr DIVIDE   simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_DIVIDE, $3);  }
+                            |   simple_expr SHL      simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_SHL, $3);     }
+                            |   simple_expr SHR      simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_SHR, $3);     }
                             ;
 
-role_param_range            : LSQUARE IDENT COLON DIGITS NUMRANGE simple_expr RSQUARE {
-                                                                                        $$ = st_expr_binexpr(st_expr_constant($4), ST_EXPR_TYPE_RANGE, $6);
-                                                                                        // TODO register $2 with global table
-                                                                                      }
-                            | LSQUARE DIGITS NUMRANGE simple_expr RSQUARE {
-                                                                            $$ = st_expr_binexpr(st_expr_constant($2), ST_EXPR_TYPE_RANGE, $4);
-                                                                          }
+range_expr                  :   IDENT COLON DIGITS NUMRANGE simple_expr {
+                                                                          $$ = st_expr_binexpr(st_expr_constant($3), ST_EXPR_TYPE_RANGE, $5);
+                                                                          /* Register $1 to global table */
+                                                                        }
+                            |   DIGITS NUMRANGE simple_expr             {
+                                                                          $$ = st_expr_binexpr(st_expr_constant($1), ST_EXPR_TYPE_RANGE, $3);
+                                                                          /* Register $1 to global table */
+                                                                        }
                             ;
 
-role_param_expr             : LSQUARE IDENT COLON simple_expr RSQUARE {
-                                                                        $$ = $4;
-                                                                        // TODO register $2 with global table
-                                                                      }
-                            | LSQUARE simple_expr RSQUARE {
-                                                            $$ = $2;
-                                                          }
+expr_expr                   :   IDENT COLON simple_expr {
+                                                          $$ = $3;
+                                                          // TODO Register $1 to global table
+                                                        }
+                            |   simple_expr             {
+                                                          $$ = $1;
+                                                        }
 
-role_param                  :                  { $$ = NULL; }
-                            | role_param_expr  { $$ = $1;   }
-                            | role_param_range { $$ = $1;   }
+tuple_expr                  :   range_expr TUPLE range_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   range_expr TUPLE expr_expr  { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   expr_expr  TUPLE range_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   expr_expr  TUPLE expr_expr  { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            ;
+
+
+role_param                  :                              { $$ = NULL; }
+                            |   LSQUARE expr_expr  RSQUARE { $$ = $2;   }
+                            |   LSQUARE range_expr RSQUARE { $$ = $2;   }
+                            |   LSQUARE tuple_expr RSQUARE { $$ = $2;   }
                             ;
 
 /* --------------------------- Global Interaction Blocks and Sequences --------------------------- */
 
 global_prot_body            :   global_interaction_blk { tree->root = $1; }
                             ;
-
 
 global_interaction_blk      :   LBRACE global_interaction_seq RBRACE {
                                                                         $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
@@ -202,26 +218,38 @@ global_interaction          :   message   { $$ = $1; }
                             |   parallel  { $$ = $1; }
                             |   recursion { $$ = $1; }
                             |   continue  { $$ = $1; }
+                            |   for       { $$ = $1; }
                             ;
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
 message                     :   message_signature FROM role_name role_param TO role_name role_param SEMICOLON {
-                                                                                                                       $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
-                                                                                                                       $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
-                                                                                                                       $$->interaction->from->name = strdup($3);
-                                                                                                                       $$->interaction->from->param = $4;
+                                                                                                                $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
+                                                                                                                $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                $$->interaction->from->name = strdup($3);
+                                                                                                                $$->interaction->from->param = $4;
 
-                                                                                                                       // At the moment, we only accept a single to-role
-                                                                                                                       $$->interaction->nto = 1;
-                                                                                                                       $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t), $$->interaction->nto);
-                                                                                                                       $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
-                                                                                                                       $$->interaction->to[0]->name = strdup($6);
-                                                                                                                       $$->interaction->to[0]->param = $7;
+                                                                                                                // At the moment, we only accept a single to-role
+                                                                                                                $$->interaction->nto = 1;
+                                                                                                                $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t), $$->interaction->nto);
+                                                                                                                $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                $$->interaction->to[0]->name = strdup($6);
+                                                                                                                $$->interaction->to[0]->param = $7;
 
-                                                                                                                       $$->interaction->msgsig = $1;
-                                                                                                                     }
+                                                                                                                $$->interaction->msgsig = $1;
+                                                                                                              }
                             ;
+
+/* --------------------------- For --------------------------- */
+
+for                         :    FOR LPAREN IDENT COLON range_expr RPAREN global_interaction_blk {
+                                                                                                   $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                   $$->forloop->range = $5;
+
+                                                                                                   $$->nchild = 1;
+                                                                                                   $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                                   $$->children[0] = $7;
+                                                                                                 }
 
 /* --------------------------- Choice --------------------------- */
 
@@ -290,7 +318,6 @@ local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_de
                             |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE simple_expr RSQUARE LPAREN role_decl_list RPAREN local_prot_body  {
                                                                                                                                                               st_tree_set_name(tree, $3);
                                                                                                                                                               tree->info->type = ST_TYPE_PARAMETRISED;
-                                                                                                                                                              assert($7<1000 && $9<1000);
                                                                                                                                                               tree->info->myrole = strdup($5);
                                                                                                                                                             }
                             ;
@@ -376,7 +403,7 @@ receive                     :   message_signature FROM role_name role_param mess
 
                                                                                                           // Message condition
                                                                                                           $$->interaction->msg_cond = $5;
-                                                                                                         }
+                                                                                                        }
                             ;
 
 /* --------------------------- Choice --------------------------- */

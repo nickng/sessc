@@ -30,6 +30,7 @@ void scribble_fprint_choice(FILE *stream, st_node *node, int indent);
 void scribble_fprint_parallel(FILE *stream, st_node *node, int indent);
 void scribble_fprint_recur(FILE *stream, st_node *node, int indent);
 void scribble_fprint_continue(FILE *stream, st_node *node, int indent);
+void scribble_fprint_for(FILE *stream, st_node *node, int indent);
 void scribble_fprint_node(FILE *stream, st_node *node, int indent);
 
 /**

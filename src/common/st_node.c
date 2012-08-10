@@ -164,7 +164,7 @@ st_node *st_node_init(st_node *node, int type)
     case ST_NODE_SEND:
     case ST_NODE_RECV:
       node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
-      //node->interaction->msg_cond = NULL; TODO
+      node->interaction->msg_cond = NULL;
       break;
     case ST_NODE_PARALLEL:
       break;
@@ -176,6 +176,9 @@ st_node *st_node_init(st_node *node, int type)
       break;
     case ST_NODE_CONTINUE:
       node->cont = (st_node_continue *)malloc(sizeof(st_node_continue));
+      break;
+    case ST_NODE_FOR:
+      node->forloop = (st_node_for *)malloc(sizeof(st_node_for));
       break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, type);
@@ -321,18 +324,15 @@ void st_node_print(const st_node *node, int indent)
         printf(" ..]");
 
         printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
-//        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
-//          printf(", cond: %s", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
-//          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-//            if (j != 0) printf(",");
-//            printf("%ld", node->interaction->msg_cond->indices[j]);
-//            if (j > 4) {
-//              printf(",...");
-//              break;
-//            }
-//          }
-//          printf("]");
-//        } // if msg_cond
+
+        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+          printf(", cond: %s", node->interaction->msg_cond->name);
+          assert(NULL!=node->interaction->msg_cond->param);
+          printf("[");
+          st_expr_print(node->interaction->msg_cond->param);
+          printf("]");
+        } // if msg_cond
+
         printf("}\n");
         break;
 
@@ -345,18 +345,15 @@ void st_node_print(const st_node *node, int indent)
         }
 
         printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
-//        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
-//          printf(", cond: %s[%s:", node->interaction->msg_cond->name, node->interaction->msg_cond->bindvar);
-//          for (j=0; j<node->interaction->msg_cond->idxcount; ++j) {
-//            if (j != 0) printf(",");
-//            printf("%ld", node->interaction->msg_cond->indices[j]);
-//            if (j > 4) {
-//              printf(",...");
-//              break;
-//            }
-//          }
-//          printf("]");
-//        } // if msg_cond
+
+        if (node->interaction->msg_cond != NULL) {
+          printf(", cond: %s", node->interaction->msg_cond->name);
+          assert(NULL!=node->interaction->msg_cond->param);
+          printf("[");
+          st_expr_print(node->interaction->msg_cond->param);
+          printf("]");
+        } // if msg_cond
+
         printf("}\n");
         break;
 
@@ -374,6 +371,12 @@ void st_node_print(const st_node *node, int indent)
 
       case ST_NODE_CONTINUE: // ---------- CONTINUE ----------
         printf("Node { type: continue, label: %s }\n", node->cont->label);
+        break;
+
+      case ST_NODE_FOR: // ---------- FOR ----------
+        printf("Node { type: forloop, range: ");
+        st_expr_print(node->forloop->range);
+        printf("}\n");
         break;
 
       default:
@@ -740,6 +743,31 @@ void st_expr_print(st_expr_t *e)
     case ST_EXPR_TYPE_MINUS:
       st_expr_print(e->binexpr->left);
       printf("-");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_MULTIPLY:
+      st_expr_print(e->binexpr->left);
+      printf("*");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_DIVIDE:
+      st_expr_print(e->binexpr->left);
+      printf("/");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_SHL:
+      st_expr_print(e->binexpr->left);
+      printf("<<");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_SHR:
+      st_expr_print(e->binexpr->left);
+      printf(">>");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_TUPLE:
+      st_expr_print(e->binexpr->left);
+      printf("][");
       st_expr_print(e->binexpr->right);
       break;
     case ST_EXPR_TYPE_CONST:

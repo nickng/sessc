@@ -15,14 +15,15 @@ extern "C" {
 
 #define ST_NODE_ROOT     0
 #define ST_NODE_SENDRECV 1
-#define ST_NODE_CHOICE   2 
+#define ST_NODE_CHOICE   2
 #define ST_NODE_PARALLEL 3
-#define ST_NODE_RECUR    4 
+#define ST_NODE_RECUR    4
 #define ST_NODE_CONTINUE 5
+#define ST_NODE_FOR      6
 
 // Endpoint-specific
-#define ST_NODE_SEND     6
-#define ST_NODE_RECV     7
+#define ST_NODE_SEND     7
+#define ST_NODE_RECV     8
 
 #define ST_TYPE_LOCAL        0
 #define ST_TYPE_GLOBAL       1
@@ -34,6 +35,11 @@ extern "C" {
 #define ST_EXPR_TYPE_RANGE 3
 #define ST_EXPR_TYPE_PLUS  4
 #define ST_EXPR_TYPE_MINUS 5
+#define ST_EXPR_TYPE_MULTIPLY 6
+#define ST_EXPR_TYPE_DIVIDE 7
+#define ST_EXPR_TYPE_SHL 8
+#define ST_EXPR_TYPE_SHR 9
+#define ST_EXPR_TYPE_TUPLE 10
 
 
 // To represent mathematical expressions
@@ -102,6 +108,11 @@ typedef struct {
 } st_node_choice;
 
 
+typedef struct {
+  st_expr_t *range;
+} st_node_for;
+
+
 struct __st_node {
   int type;
 
@@ -110,6 +121,7 @@ struct __st_node {
     st_node_choice *choice;
     st_node_recur *recur;
     st_node_continue *cont;
+    st_node_for *forloop;
   };
 
   int nchild;

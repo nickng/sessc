@@ -44,6 +44,7 @@ comment                 "//"([^\n])*\n
 "create"                { DEBUG_PRINT("Token: CREATE '%s'\n");        return CREATE;        }
 "do"                    { DEBUG_PRINT("Token: DO '%s'\n");            return DO;            }
 "enter"                 { DEBUG_PRINT("Token: ENTER '%s'\n");         return ENTER;         }
+"for"                   { DEBUG_PRINT("Token: FOR '%a'\n");           return FOR;           }
 "from"                  { DEBUG_PRINT("Token: FROM '%s'\n");          return FROM;          }
 "global"                { DEBUG_PRINT("Token: GLOBAL '%s'\n");        return GLOBAL;        }
 "import"                { DEBUG_PRINT("Token: IMPORT '%s'\n");        return IMPORT;        }
@@ -66,6 +67,10 @@ comment                 "//"([^\n])*\n
 "range"                 { DEBUG_PRINT("Token: RANGE '%s'\n");     return RANGE;     }
 
     /* Symbols */
+".."                    { DEBUG_PRINT("Token: NUMRANGE '%s'\n");  return NUMRANGE;  }
+"]["                    { DEBUG_PRINT("Token: TUPLE '%s'\n");     return TUPLE;     }
+"<<"                    { DEBUG_PRINT("Token: SHL '%s'\n");       return SHL;       }
+">>"                    { DEBUG_PRINT("Token: SHR '%s'\n");       return SHR;       }
 "("                     { DEBUG_PRINT("Token: LPAREN '%s'\n");    return LPAREN;    }
 ")"                     { DEBUG_PRINT("Token: RPAREN '%s'\n");    return RPAREN;    }
 "{"                     { DEBUG_PRINT("Token: LBRACE '%s'\n");    return LBRACE;    }
@@ -83,7 +88,6 @@ comment                 "//"([^\n])*\n
 "*"                     { DEBUG_PRINT("Token: MULTIPLY '%s'\n");  return MULTIPLY;  }
 "/"                     { DEBUG_PRINT("Token: DIVIDE '%s'\n");    return DIVIDE;    }
 "%"                     { DEBUG_PRINT("Token: MODULO '%s'\n");    return MODULO;    }
-".."                    { DEBUG_PRINT("Token: NUMRANGE '%s'\n");  return NUMRANGE;  }
 
     /* Variables */
 {digits}                { yylval.num = atol(yytext); // Unsigned
