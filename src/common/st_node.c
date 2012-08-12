@@ -309,7 +309,14 @@ void st_node_print(const st_node *node, int indent)
         }
         printf(" ..]");
 
-        printf(", msgsig: { op: %s, payload: %s }}\n", node->interaction->msgsig.op, node->interaction->msgsig.payload);
+        printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
+
+        if (NULL != node->interaction->cond) {
+          printf(", boolcond: ");
+          st_expr_print(node->interaction->cond);
+        }
+
+        printf("}\n");
         break;
 
       case ST_NODE_SEND: // ---------- SEND ----------
@@ -325,13 +332,18 @@ void st_node_print(const st_node *node, int indent)
 
         printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
 
-        if (node->interaction->msg_cond != NULL) { // ST_ROLE_PARAMETRISED, always
+        if (NULL != node->interaction->msg_cond) { // ST_ROLE_PARAMETRISED, always
           printf(", cond: %s", node->interaction->msg_cond->name);
           assert(NULL!=node->interaction->msg_cond->param);
           printf("[");
           st_expr_print(node->interaction->msg_cond->param);
           printf("]");
         } // if msg_cond
+
+        if (NULL != node->interaction->cond) {
+          printf(", boolcond: ");
+          st_expr_print(node->interaction->cond);
+        }
 
         printf("}\n");
         break;
@@ -353,6 +365,11 @@ void st_node_print(const st_node *node, int indent)
           st_expr_print(node->interaction->msg_cond->param);
           printf("]");
         } // if msg_cond
+
+        if (NULL != node->interaction->cond) {
+          printf(", boolcond: ");
+          st_expr_print(node->interaction->cond);
+        }
 
         printf("}\n");
         break;
@@ -726,9 +743,94 @@ inline st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right)
   return _;
 }
 
+void st_expr_eval(st_expr_t *e)
+{
+  assert(e->type > 0);
+  switch (e->type) {
+    case ST_EXPR_TYPE_PLUS:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant + e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_MINUS:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant - e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_MULTIPLY:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant * e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_MODULO:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant % e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_DIVIDE:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant / e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_SHL:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant << e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+    case ST_EXPR_TYPE_SHR:
+      st_expr_eval(e->binexpr->left);
+      st_expr_eval(e->binexpr->right);
+      if (ST_EXPR_TYPE_CONST == e->binexpr->left->type
+          && ST_EXPR_TYPE_CONST == e->binexpr->right->type) {
+        e->type = ST_EXPR_TYPE_CONST;
+        int val = e->binexpr->left->constant >> e->binexpr->right->constant;
+        free(e->binexpr);
+        e->constant = val;
+      }
+      break;
+  }
+}
+
 void st_expr_print(st_expr_t *e)
 {
   assert(e->type > 0);
+  st_expr_eval(e);
   switch (e->type) {
     case ST_EXPR_TYPE_RANGE:
       st_expr_print(e->binexpr->left);
@@ -736,38 +838,67 @@ void st_expr_print(st_expr_t *e)
       st_expr_print(e->binexpr->right);
       break;
     case ST_EXPR_TYPE_PLUS:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf("+");
       st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_MINUS:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf("-");
       st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_MULTIPLY:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf("*");
       st_expr_print(e->binexpr->right);
+      printf(")");
+      break;
+    case ST_EXPR_TYPE_MODULO:
+      printf("(");
+      st_expr_print(e->binexpr->left);
+      printf("%%");
+      st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_DIVIDE:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf("/");
       st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_SHL:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf("<<");
       st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_SHR:
+      printf("(");
       st_expr_print(e->binexpr->left);
       printf(">>");
       st_expr_print(e->binexpr->right);
+      printf(")");
       break;
     case ST_EXPR_TYPE_TUPLE:
       st_expr_print(e->binexpr->left);
       printf("][");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_EQUAL:
+      st_expr_print(e->binexpr->left);
+      printf("==");
+      st_expr_print(e->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_BIND:
+      st_expr_print(e->binexpr->left);
+      printf(":");
       st_expr_print(e->binexpr->right);
       break;
     case ST_EXPR_TYPE_CONST:
@@ -776,5 +907,7 @@ void st_expr_print(st_expr_t *e)
     case ST_EXPR_TYPE_VAR:
       printf("%s", e->variable);
       break;
+    default:
+      fprintf(stderr, "%s:%d %s Unknown expr type: %d\n", __FILE__, __LINE__, __FUNCTION__, e->type);
   };
 }

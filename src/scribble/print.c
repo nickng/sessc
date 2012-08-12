@@ -38,7 +38,7 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
 {
   int i = 0;
   char orig_str[2560];
-  int found;
+  int found, found2;
   static int in_comment = 0;
   va_list argptr;
   va_start(argptr, format);
@@ -47,13 +47,20 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
 
   const char *scribble_keywords[] = {
     "and", "as", "at", "by",
-    "catch", "choice", "create", "do",
-    "enter", "for", "from", "global",
-    "import", "instantiates", "interruptible", "local",
-    "or", "par", "protocol", "rec",
-    "role", "spawns", "throw", "to",
-    "with", "if", "const", "range",
+    "catch", "choice", "continue", "create", "do",
+    "enter", "for", "from", //"global",
+    "import", "instantiates",
+    "interruptible", //"local",
+    "or", "par", //"protocol",
+    "rec",
+    //"role",
+    "spawns", "throw", "to",
+    "with", "if", // "const", "range",
     "for", NULL
+  };
+
+  const char *scribble_keywords2[] = {
+    "global", "local", "protocol", "role", "const", "range", NULL
   };
 
   // Colour mode
@@ -98,7 +105,17 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
       }
       i++;
     }
+    found2 = 0;
+    i = 0;
+    while (scribble_keywords2[i] != NULL) {
+      if (0 == strcmp(token, scribble_keywords2[i])) {
+        found2 = 1;
+      }
+      i++;
+    }
     if (found) {
+      fprintf(stream, "\033[1;33m%s\033[0m ", token);
+    } else if (found2) {
       fprintf(stream, "\033[1;32m%s\033[0m ", token);
     } else {
       if (NULL != strchr(token, '\n') || NULL != strchr(token, '}')) {
@@ -152,24 +169,75 @@ void scribble_fprint_expr(FILE *stream, st_expr_t *expr)
 
   switch (expr->type) {
     case ST_EXPR_TYPE_RANGE:
-      st_expr_print(expr->binexpr->left);
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
       scribble_fprintf(stream, "..");
-      st_expr_print(expr->binexpr->right);
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
       break;
     case ST_EXPR_TYPE_PLUS:
-      st_expr_print(expr->binexpr->left);
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
       scribble_fprintf(stream, "+");
-      st_expr_print(expr->binexpr->right);
-      break;
-    case ST_EXPR_TYPE_TUPLE:
-      st_expr_print(expr->binexpr->left);
-      scribble_fprintf(stream, "][");
-      st_expr_print(expr->binexpr->right);
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
       break;
     case ST_EXPR_TYPE_MINUS:
-      st_expr_print(expr->binexpr->left);
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
       scribble_fprintf(stream, "-");
-      st_expr_print(expr->binexpr->right);
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_MULTIPLY:
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "*");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_MODULO:
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "%%");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_DIVIDE:
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "/");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_SHL:
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "<<");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_SHR:
+      scribble_fprintf(stream, "(");
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, ">>");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      scribble_fprintf(stream, ")");
+      break;
+    case ST_EXPR_TYPE_TUPLE:
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "][");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_EQUAL:
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, "==");
+      scribble_fprint_expr(stream, expr->binexpr->right);
+      break;
+    case ST_EXPR_TYPE_BIND:
+      scribble_fprint_expr(stream, expr->binexpr->left);
+      scribble_fprintf(stream, ":");
+      scribble_fprint_expr(stream, expr->binexpr->right);
       break;
     case ST_EXPR_TYPE_CONST:
       scribble_fprintf(stream, "%d", expr->constant);
@@ -177,6 +245,8 @@ void scribble_fprint_expr(FILE *stream, st_expr_t *expr)
     case ST_EXPR_TYPE_VAR:
       scribble_fprintf(stream, "%s", expr->variable);
       break;
+    default:
+      fprintf(stderr, "%s:%d %s Unknown expr type: %d\n", __FILE__, __LINE__, __FUNCTION__, expr->type);
   };
 }
 
@@ -211,6 +281,11 @@ void scribble_fprint_message(FILE *stream, st_node *node, int indent)
     }
     if (i!=node->interaction->nto-1)
       scribble_fprintf(stream, ", ");
+  }
+
+  if (NULL != node->interaction->cond) {
+    scribble_fprintf(stream, " if ");
+    scribble_fprint_expr(stream, node->interaction->cond);
   }
 
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
@@ -297,6 +372,7 @@ void scribble_fprint_choice(FILE *stream, st_node *node, int indent)
   }
   scribble_fprintf(stream, "\n");
 }
+
 
 void scribble_fprint_parallel(FILE *stream, st_node *node, int indent)
 {

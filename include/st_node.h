@@ -37,9 +37,12 @@ extern "C" {
 #define ST_EXPR_TYPE_MINUS 5
 #define ST_EXPR_TYPE_MULTIPLY 6
 #define ST_EXPR_TYPE_DIVIDE 7
-#define ST_EXPR_TYPE_SHL 8
-#define ST_EXPR_TYPE_SHR 9
-#define ST_EXPR_TYPE_TUPLE 10
+#define ST_EXPR_TYPE_MODULO 8
+#define ST_EXPR_TYPE_SHL 9
+#define ST_EXPR_TYPE_SHR 10
+#define ST_EXPR_TYPE_TUPLE 11
+#define ST_EXPR_TYPE_EQUAL 12
+#define ST_EXPR_TYPE_BIND 13
 
 
 // To represent mathematical expressions
@@ -89,7 +92,8 @@ typedef struct {
 
   st_role_t *from;
 
-  msg_cond_t *msg_cond;
+  msg_cond_t *msg_cond; // Pattern matching condition
+  st_expr_t *cond; // Boolean condition
 } st_node_interaction;
 
 
