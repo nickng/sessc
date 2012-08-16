@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include "st_node.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \brief Set whether scribble pretty printer uses colour.
  *
@@ -49,5 +53,8 @@ void scribble_fprint(FILE *stream, st_tree *tree);
  */
 void scribble_print(st_tree *tree);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SCRIBBLE__PRINT__H__
