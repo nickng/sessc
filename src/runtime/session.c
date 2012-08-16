@@ -234,8 +234,10 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
   sess->name = (char *)calloc(sizeof(char), strlen(tree->info->myrole)+1);
   strcpy(sess->name, tree->info->myrole);
 
-  // TODO Check whether role is parametrised and set index
   sess->is_parametrised = 0; // Defaults to normal role
+  if (tree->info->type == ST_TYPE_PARAMETRISED) {
+    sess->is_parametrised = 1;
+  }
   sess->index = my_role_index;
 
   if (sess->is_parametrised && sess->index == -1) {

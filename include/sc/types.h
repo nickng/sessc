@@ -74,7 +74,7 @@ struct session_t
 
   // Lookup functions.
   role *(*r)(struct session_t *, char *); // P2P and Group role
-  role *(*r_idx)(struct session_t *, char *, int); // Indexed role
+  role *(*i)(struct session_t *, int); // Indexed role
 
   // Extra data.
   void *ctx;

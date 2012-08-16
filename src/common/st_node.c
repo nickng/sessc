@@ -165,6 +165,7 @@ st_node *st_node_init(st_node *node, int type)
     case ST_NODE_RECV:
       node->interaction = (st_node_interaction *)malloc(sizeof(st_node_interaction));
       node->interaction->msg_cond = NULL;
+      node->interaction->cond = NULL;
       break;
     case ST_NODE_PARALLEL:
       break;
@@ -343,7 +344,7 @@ void st_node_print(const st_node *node, int indent)
         if (NULL != node->interaction->cond) {
           printf(", boolcond: ");
           st_expr_print(node->interaction->cond);
-        }
+        } // if cond
 
         printf("}\n");
         break;
@@ -358,9 +359,9 @@ void st_node_print(const st_node *node, int indent)
 
         printf(", msgsig: { op: %s, payload: %s }", node->interaction->msgsig.op, node->interaction->msgsig.payload);
 
-        if (node->interaction->msg_cond != NULL) {
+        if (NULL != node->interaction->msg_cond) {
           printf(", cond: %s", node->interaction->msg_cond->name);
-          assert(NULL!=node->interaction->msg_cond->param);
+          assert(NULL != node->interaction->msg_cond->param);
           printf("[");
           st_expr_print(node->interaction->msg_cond->param);
           printf("]");
@@ -369,7 +370,7 @@ void st_node_print(const st_node *node, int indent)
         if (NULL != node->interaction->cond) {
           printf(", boolcond: ");
           st_expr_print(node->interaction->cond);
-        }
+        } // if cond
 
         printf("}\n");
         break;
