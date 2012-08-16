@@ -30,11 +30,11 @@ using namespace clang;
 
 namespace {
 
-  class SessionTypeCheckingConsumer : 
+  class SessionTypeCheckingConsumer :
       public ASTConsumer,
       public DeclVisitor<SessionTypeCheckingConsumer>,
       public StmtVisitor<SessionTypeCheckingConsumer> {
-  
+
     protected:
 
     typedef DeclVisitor<SessionTypeCheckingConsumer> BaseDeclVisitor;
@@ -51,6 +51,9 @@ namespace {
     st_tree *tree_;
     std::stack< st_node * > appendto_node;
     std::map< std::string, std::string > varname2rolename;
+
+    std::stack< st_expr_t * > cond_stack;
+    std::stack< st_expr_t * > role_cond_stack;
 
     // Recursion counter.
     int recur_counter;
@@ -102,6 +105,8 @@ namespace {
         st_node_reset_markedflag(scribble_tree_->root);
         if (st_node_compare_r(scribble_tree_->root, tree_->root)) {
           diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Note, "Type checking successful");
+          st_tree_print(tree_);
+          st_tree_print(scribble_tree_);
           llvm::outs() << "Type checking successful\n";
         } else {
           diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Type checking failed, see above for error location");
@@ -127,37 +132,42 @@ namespace {
         std::string rolename("");
 
         if (isa<ImplicitCastExpr>(expr)) { // role*
-
-          if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(expr)) {
-            if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
-              if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-                // Map variable name to role name
-                rolename = varname2rolename.at(VD->getNameAsString());
-              }
+          ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(expr);
+          if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+            if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+              // Map variable name to role name
+              rolename = varname2rolename.at(VD->getNameAsString());
             }
           }
 
-        } else if (isa<CallExpr>(expr)) { // session->role(s, r);
+        } else if (isa<CallExpr>(expr)) { // session->role(s, ?);
+          CallExpr *CE = cast<CallExpr>(expr);
 
-          if (CallExpr *CE = dyn_cast<CallExpr>(expr)) {
-            if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getCallee())) {
+          if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getCallee())) {
 
-              // hack to check that this is a role-extraction function
-              if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") == 0) {
+            // Is this s->r(s, rolename)
+            if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") == 0) {
 
-                // Now extract the second argument of ->role(s, r)
-                if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) { 
-                  if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
-                    rolename = SL->getString();
-                  } else {
-                    llvm::errs() << "Invalid use of r(), expecting string literal";
-                    rolename = std::string("__(variable)");
-                  }
+              // Now extract the second argument of ->role(s, r)
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
+                  rolename = SL->getString();
+                } else {
+                  int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Invalid use of r(), expecting string literal");
+                  context_->getDiagnostics().Report(diagId) << SL->getSourceRange();
+                  rolename = std::string("__(variable)");
                 }
+              }
 
-              } // if correct type
+            // Is this s->i(s, index)
+            } else if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, int)") == 0) {
+
+              // Extract second argument of ->role(s, r)
+              st_expr_print(parseExpr(CE->getArg(1)));
+              rolename = std::string(scribble_tree_->info->myrole);
 
             }
+
           }
 
         } else { // Not role* nor session->r(session, rolename)
@@ -173,7 +183,7 @@ namespace {
         if (rolename[0] == '_')
           return rolename;
         for (int role_idx=0; role_idx<tree_->info->nrole; ++role_idx) {
-          if (strcmp(tree_->info->roles[role_idx], rolename.c_str()) == 0) {
+          if (strcmp(tree_->info->roles[role_idx]->name, rolename.c_str()) == 0) {
             return rolename; // Role already registered in st_tree. Return early.
           }
         }
@@ -181,6 +191,113 @@ namespace {
         st_tree_add_role(tree_, rolename.c_str());
         return rolename;
 
+      }
+
+      st_expr_t *parseExpr(Expr *E) {
+
+        //
+        // Basic binary operators
+        //
+        // covers all st_expr supported binary operators
+        // except toplevel expressions: RANGE and TUPLE
+        //
+        if (isa<BinaryOperator>(E)) {
+          BinaryOperator *BO = cast<BinaryOperator>(E);
+          switch (BO->getOpcode()) {
+            case BO_Add:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_PLUS, parseExpr(BO->getRHS()));
+              break;
+            case BO_Sub:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_MINUS, parseExpr(BO->getRHS()));
+              break;
+            case BO_Mul:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_MULTIPLY, parseExpr(BO->getRHS()));
+              break;
+            case BO_Div:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_DIVIDE, parseExpr(BO->getRHS()));
+              break;
+            case BO_Rem:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_MODULO, parseExpr(BO->getRHS()));
+              break;
+            case BO_Shl:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_SHL, parseExpr(BO->getRHS()));
+              break;
+            case BO_Shr:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_SHR, parseExpr(BO->getRHS()));
+              break;
+            case BO_EQ:
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_EQUAL, parseExpr(BO->getRHS()));
+              break;
+            default:
+              llvm::errs() << "Warning: Unknown Opcode " << BO->getOpcode() << ", returning 1 (true)\n";
+              return st_expr_constant(1);
+          }
+        }
+
+        //
+        // Basic unary operators
+        //
+        if (isa<UnaryOperator>(E)) {
+          UnaryOperator *UO = cast<UnaryOperator>(E);
+          switch (UO->getOpcode()) {
+            case UO_Minus:
+              return st_expr_binexpr(st_expr_constant(0), ST_EXPR_TYPE_MINUS, parseExpr(UO->getSubExpr()));
+              break;
+            default:
+              llvm::errs() << "Warning: Unknown Opcode " << UO->getOpcode() << ", returning 1 (true)\n";
+              return st_expr_constant(1);
+          }
+        }
+
+        //
+        // Integer literals
+        //
+        if (isa<IntegerLiteral>(E)) {
+          IntegerLiteral *IL = cast<IntegerLiteral>(E);
+          int il_val = *(IL->getValue().getRawData());
+          return st_expr_constant(il_val);
+        }
+
+        //
+        // Parenthesis (ignore)
+        //
+        if (isa<ParenExpr>(E)) {
+          ParenExpr *PE = cast<ParenExpr>(E);
+          return parseExpr(PE->getSubExpr());
+        }
+
+        //
+        // Multiple possibilities
+        //
+        // 1. Plain ariable (DeclRefExpr) (int *)i
+        // 2. Struct member (MemberExpr,ImplicitCastExpr,DeclRefExpr) (int)->member((session *)s)
+        //
+        if (isa<ImplicitCastExpr>(E)) {
+          ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(E);
+          if (isa<DeclRefExpr>(ICE->getSubExpr())) {
+            DeclRefExpr *DRE = cast<DeclRefExpr>(ICE->getSubExpr());
+            return st_expr_variable(strdup(DRE->getDecl()->getNameAsString().c_str()));
+          }
+          if (isa<MemberExpr>(ICE->getSubExpr())) {
+            MemberExpr *ME = cast<MemberExpr>(ICE->getSubExpr());
+            if (ME->getMemberDecl()->getNameAsString().compare("index") == 0
+                && ME->getBase()->getType().getAsString().compare("session *") == 0) {
+              return st_expr_variable(strdup("__INDEX__"));
+            }
+          }
+        }
+
+        llvm::outs() << "Cannot convert [start]\n";
+        E->dump();
+        llvm::outs() << "Cannot convert [end]\n";
+        return st_expr_constant(1);
+      }
+
+      st_expr_t **getRange(InitListExpr *rangeExpr) {
+        st_expr_t **rng = (st_expr_t **)calloc(sizeof(st_expr_t *), rangeExpr->getNumInits()/2);
+        //rng[i] = st_expr_binexpr(parseExpr(rangeExpr->getChild(2*i)), ST_EXPR_TYPE_RANGE, parseExpr(rangeExpr->getChild(2*i+1)));
+
+        return rng;
       }
 
 
@@ -290,7 +407,7 @@ namespace {
             // We want to make sure the arguments are evaluated first
             // in a function call, before evaluating the func call itself
             //
-        
+
             Stmt *func_call_stmt = NULL;
             std::string func_name(callExpr->getDirectCallee()->getNameAsString());
             std::string datatype;
@@ -404,9 +521,10 @@ namespace {
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
               node->interaction->from = NULL;
               node->interaction->nto = 1;
-              node->interaction->to = (char **)calloc(sizeof(char *), node->interaction->nto);
-              node->interaction->to[0] = (char *)calloc(sizeof(char), role.size()+1);
-              strcpy(node->interaction->to[0], role.c_str());
+
+              node->interaction->to = (st_role_t **)calloc(sizeof(st_role_t *), node->interaction->nto);
+              node->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
+              node->interaction->to[0]->name = strdup(role.c_str());
               if (label.compare("") == 0) {
                 node->interaction->msgsig.op = NULL;
               } else {
@@ -416,14 +534,22 @@ namespace {
               node->interaction->msgsig.payload = (char *)calloc(sizeof(char), datatype.size()+1);
               strcpy(node->interaction->msgsig.payload, datatype.c_str());
 
+              // Evaluation conditions
+              node->interaction->cond = cond_stack.top();
+              if (NULL != role_cond_stack.top()) { // If role condition is not NULL
+                node->interaction->msg_cond = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+                node->interaction->msg_cond->name = tree_->info->myrole;
+                node->interaction->msg_cond->param = role_cond_stack.top();
+              }
+
               // Put new ST node in position (ie. child of previous_node).
               st_node * previous_node = appendto_node.top();
               st_node_append(previous_node, node);
-                      
+
               return; // End of ST_NODE_SEND construction.
             }
             // ---------- End of Send -----------
-            
+
             // ---------- Receive/Recv ----------
             if (func_name.find("receive_") != std::string::npos  // Indirect recv
                 || func_name.find("recv_") != std::string::npos) { // Direct recv
@@ -436,13 +562,23 @@ namespace {
               role = get_rolename(callExpr->getArg(1));
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-              node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
-              strcpy(node->interaction->from, role.c_str());
+              node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+              node->interaction->from->name = strdup(role.c_str());
               node->interaction->nto = 0;
               node->interaction->to = NULL;
               node->interaction->msgsig.op = NULL;
               node->interaction->msgsig.payload = (char *)calloc(sizeof(char), datatype.size()+1);
               strcpy(node->interaction->msgsig.payload, datatype.c_str());
+              node->interaction->cond = NULL;
+              node->interaction->msg_cond = NULL;
+
+              // Evaluation conditions
+              node->interaction->cond = cond_stack.top();
+              if (NULL != role_cond_stack.top()) { // If role condition is not NULL
+                node->interaction->msg_cond = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+                node->interaction->msg_cond->name = tree_->info->myrole;
+                node->interaction->msg_cond->param = role_cond_stack.top();
+              }
 
               // Put new ST node in position (ie. child of previous_node).
               st_node * previous_node = appendto_node.top();
@@ -468,8 +604,8 @@ namespace {
               }
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-              node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
-              strcpy(node->interaction->from, role.c_str());
+              node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+              node->interaction->from->name = strdup(role.c_str());
               node->interaction->nto = 0;
               node->interaction->to = NULL;
               node->interaction->msgsig.op = NULL;
@@ -483,13 +619,14 @@ namespace {
               return; // end of ST_NODE_RECV construction.
             }
             // ---------- End of Receive label ----------
- 
+
           } else {
             //
             // With the exception of role-extraction function, ignore all non-direct function calls.
             //
             if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(callExpr->getCallee())) {
-              if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") != 0) {
+              if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") != 0
+                  && ICE->getType().getAsString().compare("role *(*)(struct session_t *, int)") != 0) {
                 llvm::errs() << "Warn: Skipping over a non-direct function call\n";
                 callExpr->dump();
               }
@@ -610,6 +747,68 @@ namespace {
         if (isa<IfStmt>(stmt)) {
           IfStmt *ifStmt = cast<IfStmt>(stmt);
 
+          //
+          // For an If-Statement, we try to match conditional evaluation in Scribble
+          // by putting into stack cond_stack and role_cond_stack
+          //
+          st_expr_t *bool_cond = NULL; // Pure boolean condition
+          st_expr_t *role_cond = NULL; // Role condition for pattern matching
+
+          // If this is a boolean condition and with CallExpr && CallExpr
+          if (isa<BinaryOperator>(ifStmt->getCond())) {
+
+            BinaryOperator *BO = cast<BinaryOperator>(ifStmt->getCond());
+            if (BO->getOpcode() == BO_LAnd
+                && isa<CallExpr>(BO->getLHS()) && isa<CallExpr>(BO->getRHS())) {
+
+              CallExpr *CE_LHS = cast<CallExpr>(BO->getLHS());
+              CallExpr *CE_RHS = cast<CallExpr>(BO->getRHS());
+
+              // We want to match sc_eval_cond(...) && sc_index_match(...)
+              if (0 == CE_LHS->getDirectCallee()->getNameAsString().compare("sc_eval_cond")
+                  && 0 == CE_RHS->getDirectCallee()->getNameAsString().compare("sc_index_match")) {
+
+                if (isa<ImplicitCastExpr>(CE_RHS->getArg(1))) {
+                  ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(CE_RHS->getArg(1));
+                  if (isa<CompoundLiteralExpr>(ICE->getSubExpr())) {
+                    CompoundLiteralExpr *CLE = cast<CompoundLiteralExpr>(ICE->getSubExpr());
+                    if (isa<InitListExpr>(CLE->getInitializer())) {
+                      InitListExpr *ILE = cast<InitListExpr>(CLE->getInitializer());
+                      for (unsigned i=0; i<ILE->getNumInits()/2; ++i) {
+                        bool_cond = parseExpr(CE_LHS->getArg(0));
+                        role_cond = st_expr_binexpr(parseExpr(ILE->getInits()[2*i]), ST_EXPR_TYPE_RANGE, parseExpr(ILE->getInits()[2*i+1]));
+                      }
+                    }
+                  }
+                }
+              } else {
+                int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, "Expecting sc_eval_cond() and sc_index_match() for conditional evaluation");
+                context_->getDiagnostics().Report(ifStmt->getCond()->getExprLoc(), diagId) << BO->getSourceRange();
+              }
+
+            }
+
+          } else { // condition is not a BinaryOperator
+
+            if (isa<CallExpr>(ifStmt->getCond())) {
+
+              CallExpr *CE = cast<CallExpr>(ifStmt->getCond());
+
+              // We want to match sc_index_match(...) only
+              if (CE->getDirectCallee()->getNameAsString().compare("sc_index_match") == 0) {
+                role_cond = st_expr_binexpr(parseExpr(CE->getArg(1)), ST_EXPR_TYPE_RANGE, parseExpr(CE->getArg(2)));
+              }
+            }
+
+          }
+
+          //
+          // Push the conditions in the condition stacks for Then-block
+          //
+          cond_stack.push(bool_cond);
+          role_cond_stack.push(role_cond);
+
+          // Now create the choice node
           st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CHOICE);
 
           st_node *previous_node = appendto_node.top();
@@ -640,8 +839,8 @@ namespace {
 
                   // Append a dummy recv node
                   st_node *label_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-                  label_node->interaction->from = (char *)calloc(sizeof(char), role.size()+1);
-                  strcpy(label_node->interaction->from, role.c_str());
+                  label_node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+                  label_node->interaction->from->name = strdup(role.c_str());
                   label_node->interaction->nto = 0;
                   label_node->interaction->to = NULL;
                   label_node->interaction->msgsig.op = (char *)calloc(sizeof(char), op.size()+1);
@@ -658,6 +857,16 @@ namespace {
 
             BaseStmtVisitor::Visit(ifStmt->getThen());
             appendto_node.pop();
+
+          }
+
+          // Restore the conditions
+          cond_stack.pop();
+          role_cond_stack.pop();
+
+          if ((NULL != bool_cond || NULL != role_cond) && NULL != ifStmt->getElse()) {
+            int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, "Conditional evaluation condition set, Expecting empty Else-block but Else-block non-empty");
+            context_->getDiagnostics().Report(diagId) << ifStmt->getElse()->getSourceRange();
           }
 
           // Else-block.
@@ -675,17 +884,15 @@ namespace {
           for (int i=0; i<node->nchild; ++i) { // Children of choice = code blocks
             for (int j=0; j<node->children[i]->nchild; ++j) { // Children of code blocks = body of then/else
               if (node->children[i]->children[j]->type == ST_NODE_RECV) {
-                if (strcmp(node->children[i]->children[j]->interaction->from, "__LOCAL__") == 0) {
+                if (strcmp(node->children[i]->children[j]->interaction->from->name, "__LOCAL__") == 0) {
                   continue;
                 }
 
-                node->choice->at = (char *)calloc(sizeof(char), strlen(node->children[i]->children[j]->interaction->from)+1);
-                strcpy(node->choice->at, node->children[i]->children[j]->interaction->from);
+                node->choice->at = strdup(node->children[i]->children[j]->interaction->from->name);
                 break;
               }
               if (node->children[i]->children[j]->type == ST_NODE_SEND) {
-                node->choice->at = (char *)calloc(sizeof(char), strlen(tree_->info->myrole)+1);
-                strcpy(node->choice->at, tree_->info->myrole);
+                node->choice->at = strdup(tree_->info->myrole);
                 break;
               }
             }
