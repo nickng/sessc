@@ -84,6 +84,28 @@ st_node *st_node_singleton_leaf_upmerge(st_node *node)
 
 
 /**
+ * Checks if there is still empty leaf.
+ */
+int st_node_has_empty_leaf(st_node *node)
+{
+  int i;
+  int has_empty_leaf = 0;
+  if (node->nchild == 0 &&
+      (node->type == ST_NODE_CHOICE
+      || node->type == ST_NODE_PARALLEL
+      || node->type == ST_NODE_RECUR
+      || node->type == ST_NODE_ROOT)) {
+    return 1;
+  } else {
+    for (i=0; i<node->nchild; ++i) {
+      has_empty_leaf |= st_node_has_empty_leaf(node->children[i]);
+    }
+  }
+  return has_empty_leaf;
+}
+
+
+/**
  * Remove leaf nodes with no children
  * (choice, par, recur, root)
  */
@@ -199,8 +221,10 @@ st_node *st_node_canonicalise(st_node *node)
 {
   node = st_node_recur_simplify(node);
   node = st_node_singleton_leaf_upmerge(node);
-  node = st_node_empty_leaf_remove(node);
-  node = st_node_singleton_leaf_upmerge(node);
+  while (st_node_has_empty_leaf(node)) {
+    node = st_node_empty_leaf_remove(node);
+    node = st_node_singleton_leaf_upmerge(node);
+  }
   node = st_node_recur_remove_dup_continue(node);
   node = st_node_raise_subroot_children(node);
   return node;
