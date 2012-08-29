@@ -16,33 +16,37 @@ extern FILE *yyin;
 
 // Local variables.
 static st_tree_import_t import;
-static role_params_t role_params;
 
 void yyerror(st_tree *tree, const char *s)
 {
     fprintf(stderr, "Error: %s\n", s);
 }
+
+static symbol_table_t symbol_table;
 %}
 
     /* Keywords */
-%token AND AS AT CHOICE CONTINUE FROM GLOBAL IMPORT LOCAL OR PAR PROTOCOL REC ROLE TO IF
+%token AND AS AT BY CATCH CHOICE CONTINUE CREATE DO ENTER FROM GLOBAL IMPORT INSTANTIATES INTERRUPTIBLE LOCAL OR PAR PROTOCOL REC ROLE SPAWNS THROW TO WITH IF CONST RANGE FOR
 
     /* Symbols */
-%token LBRACE RBRACE LPAREN RPAREN SEMICOLON COLON COMMA LSQUARE RSQUARE PLUS NUMRANGE
+%token LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE LANGLE RANGLE COMMA COLON SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE MODULO SHL SHR NUMRANGE TUPLE
 
     /* Variables */
 %token <str> IDENT COMMENT
 %token <num> DIGITS
 
 %type <str> role_name message_operator message_payload type_decl_from type_decl_as
-%type <role_param> role_param role_param_binder role_param_range role_param_add role_param_var role_param_set role_indices
+%type <expr> simple_expr role_param range_expr expr_expr tuple_expr message_bool_cond l_message_bool_cond
 %type <msg_cond> message_condition
-%type <node> message choice parallel recursion continue
-%type <node> send receive l_choice l_parallel l_recursion
+%type <node> message choice parallel recursion continue for
+%type <node> send receive l_choice l_parallel l_recursion l_for
 %type <node> global_interaction global_interaction_blk and_global_interaction_blk or_global_interaction_blk
 %type <node> local_interaction  local_interaction_blk  and_local_interaction_blk  or_local_interaction_blk
 %type <node_list> global_interaction_seq local_interaction_seq
 %type <msgsig> message_signature
+
+%left PLUS MINUS
+%left MULTIPLY DIVIDE MODULO
 
 %code requires {
 #include "st_node.h"
@@ -57,7 +61,7 @@ void yyerror(st_tree *tree, const char *s)
     st_node *node;
     st_nodes *node_list;
     st_node_msgsig_t msgsig;
-    role_param_t *role_param;
+    st_expr_t *expr;
     msg_cond_t *msg_cond;
 }
 
@@ -67,21 +71,43 @@ void yyerror(st_tree *tree, const char *s)
 
 /* --------------------------- Scribble Protocol Structure --------------------------- */
 
-scribble_protocol           :   type_decls global_prot_decls { }
-                            |   type_decls local_prot_decls  { }
+scribble_protocol           :   const_decls type_decls global_prot_decls { }
+                            |   const_decls type_decls local_prot_decls  { }
+                            ;
+
+/* --------------------------- Const declarations --------------------------- */
+
+const_decls                 :
+                            |   const_decls const_decl
+                            ;
+
+const_decl                  :   CONST IDENT EQUAL DIGITS {
+                                                           symbol_table.count++;
+                                                           symbol_table.symbols = (symbol_t **)realloc(symbol_table.symbols, sizeof(symbol_t *)*symbol_table.count);
+                                                           symbol_table.symbols[symbol_table.count-1] = (symbol_t *)malloc(sizeof(symbol_t));
+                                                           symbol_table.symbols[symbol_table.count-1]->name = strdup($2);
+                                                           symbol_table.symbols[symbol_table.count-1]->expr = st_expr_constant($4);
+                                                         }
+                            |   RANGE IDENT EQUAL DIGITS NUMRANGE simple_expr { // Register range in symbol table
+                                                                                symbol_table.count++;
+                                                                                symbol_table.symbols = (symbol_t **)realloc(symbol_table.symbols, sizeof(symbol_t *)*symbol_table.count);
+                                                                                symbol_table.symbols[symbol_table.count-1] = (symbol_t *)malloc(sizeof(symbol_t));
+                                                                                symbol_table.symbols[symbol_table.count-1]->name = strdup($2);
+                                                                                symbol_table.symbols[symbol_table.count-1]->expr = st_expr_binexpr(st_expr_constant($4), ST_EXPR_TYPE_RANGE, $6);
+                                                                              }
                             ;
 
 /* --------------------------- Message Type Declarations --------------------------- */
 
-type_decls                  : 
+type_decls                  :
                             |   type_decls type_decl
                             ;
 
 type_decl                   :   IMPORT IDENT type_decl_from type_decl_as SEMICOLON {
-                                                                                        import.name = strdup($2);
-                                                                                        import.from = ($3 == NULL) ? NULL : strdup($3);
-                                                                                        import.as   = ($4 == NULL) ? NULL : strdup($4);
-                                                                                        st_tree_add_import(tree, import);
+                                                                                     import.name = strdup($2);
+                                                                                     import.from = ($3 == NULL) ? NULL : strdup($3);
+                                                                                     import.as   = ($4 == NULL) ? NULL : strdup($4);
+                                                                                     st_tree_add_import(tree, import);
                                                                                    }
                             ;
 
@@ -117,135 +143,74 @@ global_prot_decls           :   GLOBAL PROTOCOL IDENT LPAREN role_decl_list RPAR
 
 role_decl_list              :
                             |   role_decl                         /* XXX: Shift-reduce */
-                            |   role_decl_list COMMA role_decl  
+                            |   role_decl_list COMMA role_decl
                             ;
 
-role_decl                   :   ROLE role_name role_param_range { st_tree_add_role_param(tree, $2, $3->params[0], $3->params[$3->count-1]); }
-                            |   ROLE role_name                  { st_tree_add_role(tree, $2); }
+role_decl                   :   ROLE role_name LSQUARE tuple_expr RSQUARE { st_tree_add_role_param(tree, $2, $4); }
+                            |   ROLE role_name LSQUARE range_expr RSQUARE { st_tree_add_role_param(tree, $2, $4); }
+                            |   ROLE role_name                            { st_tree_add_role(tree, $2);           }
                             ;
 
 role_name                   :   IDENT { $$ = $1; }
                             ;
 
-role_param_binder           :   role_param_range { $$ = $1;   }
-                            |   role_param_set   { $$ = $1;   }
-                            |                    { $$ = NULL; }
-                            ;
-
-role_param                  :   role_param_range { $$ = $1;   }
-                            |   role_param_set   { $$ = $1;   }
-                            |   role_param_add   { $$ = $1;   }
-                            |   role_param_var   { $$ = $1;   }
-                            |                    { $$ = NULL; }
-                            ;
-
 /* --------------------------- Parametrised roles --------------------------- */
 
-role_param_range            : LSQUARE IDENT COLON DIGITS NUMRANGE DIGITS RSQUARE {
-                                                                                    $$ = (role_param_t *)malloc(sizeof(role_param_t));
-                                                                                    $$->count = 0;
-                                                                                    long i;
-                                                                                    $$->params = (long *)calloc(sizeof(long), ($6-$4+1));
-                                                                                    for (i=$4; i<=$6; ++i) {
-                                                                                        $$->bindvar = strdup($2);
-                                                                                        $$->params[$$->count++] = i;
-                                                                                    }
-
-                                                                                    // Register role-parameter bindings 
-                                                                                    role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
-                                                                                    role_params.params_ptrs[role_params.count++] = $$;
-                                                                                 }
+simple_expr                 :   IDENT                            {
+                                                                   int i;
+                                                                   $$ = st_expr_variable($1);
+                                                                   for (i=0; i<symbol_table.count; ++i) {
+                                                                     if (0 == strcmp(symbol_table.symbols[i]->name, $1)) {
+                                                                        $$ = symbol_table.symbols[i]->expr;
+                                                                     }
+                                                                   }
+                                                                 }
+                            |   DIGITS                           { $$ = st_expr_constant($1);                           }
+                            |   LPAREN simple_expr RPAREN        { $$ = $2;                                             }
+                            |   simple_expr PLUS     simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_PLUS, $3);     }
+                            |   simple_expr MINUS    simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_MINUS, $3);    }
+                            |   simple_expr MULTIPLY simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_MULTIPLY, $3); }
+                            |   simple_expr DIVIDE   simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_DIVIDE, $3);   }
+                            |   simple_expr MODULO   simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_MODULO, $3);   }
+                            |   simple_expr SHL      simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_SHL, $3);      }
+                            |   simple_expr SHR      simple_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_SHR, $3);      }
                             ;
 
-role_param_var              : LSQUARE IDENT COLON IDENT RSQUARE {
-                                                                    $$ = (role_param_t *)malloc(sizeof(role_param_t));
-                                                                    $$->count = 0;
-                                                                    int i, j;
-                                                                    for (i=0; i<role_params.count; ++i) {
-                                                                        if (0 == strcmp(role_params.params_ptrs[i]->bindvar, $4)) {
-                                                                            $$->params = (long *)calloc(sizeof(long), role_params.params_ptrs[i]->count);
-                                                                            for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
-                                                                                $$->bindvar = strdup($2);
-                                                                                $$->params[$$->count++] = role_params.params_ptrs[i]->params[j];
-                                                                            }
-
-                                                                            // Register role-parameter bindings
-                                                                            role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
-                                                                            role_params.params_ptrs[role_params.count++] = $$;
-                                                                            break;
+range_expr                  :   IDENT COLON DIGITS NUMRANGE simple_expr {
+                                                                          $$ = st_expr_binexpr(st_expr_constant($3), ST_EXPR_TYPE_RANGE, $5);
+                                                                          /* Register $1 to global table */
                                                                         }
-                                                                    }
-                                                                }
+                            |   simple_expr NUMRANGE simple_expr        {
+                                                                          $$ = st_expr_binexpr($1, ST_EXPR_TYPE_RANGE, $3);
+                                                                          /* Register $1 to global table */
+                                                                        }
                             ;
 
-role_param_add              : LSQUARE IDENT COLON IDENT PLUS DIGITS RSQUARE {
-                                                                                $$ = (role_param_t *)malloc(sizeof(role_param_t));
-                                                                                $$->count = 0;
-                                                                                int i, j;
-                                                                                for (i=0; i<role_params.count; ++i) {
-                                                                                    if (0 == strcmp(role_params.params_ptrs[i]->bindvar, $4)) {
-                                                                                        $$->params = (long *)calloc(sizeof(long), role_params.params_ptrs[i]->count);
-                                                                                        for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
-                                                                                            $$->bindvar = strdup($2);
-                                                                                            $$->params[$$->count++] = role_params.params_ptrs[i]->params[j] + $6;
-                                                                                        }
-
-                                                                                        // Register role-parameter bindings
-                                                                                        role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
-                                                                                        role_params.params_ptrs[role_params.count++] = $$;
-                                                                                        break;
-                                                                                    }
-                                                                                }
-                                                                            }
-                            | LSQUARE IDENT COLON DIGITS PLUS IDENT RSQUARE {
-                                                                                $$ = (role_param_t *)malloc(sizeof(role_param_t));
-                                                                                $$->count = 0;
-                                                                                int i, j;
-                                                                                for (i=0; i<role_params.count; ++i) {
-                                                                                    if (0 == strcmp(role_params.params_ptrs[i]->bindvar, $6)) {
-                                                                                        $$->params = (long *)calloc(sizeof(long), role_params.params_ptrs[i]->count);
-                                                                                        for (j=0; j<role_params.params_ptrs[i]->count; ++j) {
-                                                                                            $$->bindvar = strdup($2);
-                                                                                            $$->params[$$->count++] = role_params.params_ptrs[i]->params[j] + $4;
-                                                                                        }
-
-                                                                                        // Register role-parameter bindings
-                                                                                        role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
-                                                                                        role_params.params_ptrs[role_params.count++] = $$;
-                                                                                        break;
-                                                                                    }
-                                                                                }
-                                                                            }
-                            ;
-
-role_indices                : DIGITS                    {
-                                                            $$ = (role_param_t *)malloc(sizeof(role_param_t));
-                                                            $$->count = 1;
-                                                            $$->params = (long *)malloc(sizeof(long));
-                                                            $$->params[0] = $1;
+expr_expr                   :   IDENT COLON simple_expr {
+                                                          $$ = st_expr_binexpr(st_expr_variable($1), ST_EXPR_TYPE_BIND, $3);
+                                                          // TODO Register $1 to global table
                                                         }
-                            | role_indices COMMA DIGITS {
-                                                            $$ = $1;
-                                                            $$->params = (long *)realloc($$->params, sizeof(long) * ($$->count + 1));
-                                                            $$->params[$$->count++] = $3;
+                            |   simple_expr             {
+                                                          $$ = $1;
                                                         }
+
+tuple_expr                  :   range_expr TUPLE range_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   range_expr TUPLE expr_expr  { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   expr_expr  TUPLE range_expr { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
+                            |   expr_expr  TUPLE expr_expr  { $$ = st_expr_binexpr($1, ST_EXPR_TYPE_TUPLE, $3); }
                             ;
 
-role_param_set              : LSQUARE IDENT COLON role_indices RSQUARE {
-                                                                            $$ = $4; // Copy indices information over
-                                                                            $$->bindvar = strdup($2);
 
-                                                                            // Register role-parameter bindings
-                                                                            role_params.params_ptrs = (role_param_t **)malloc(sizeof(role_param_t *) * (role_params.count + 1));
-                                                                            role_params.params_ptrs[role_params.count++] = $$;
-                                                                       }
+role_param                  :                              { $$ = NULL; }
+                            |   LSQUARE expr_expr  RSQUARE { $$ = $2;   }
+                            |   LSQUARE range_expr RSQUARE { $$ = $2;   }
+                            |   LSQUARE tuple_expr RSQUARE { $$ = $2;   }
                             ;
 
 /* --------------------------- Global Interaction Blocks and Sequences --------------------------- */
 
 global_prot_body            :   global_interaction_blk { tree->root = $1; }
                             ;
-
 
 global_interaction_blk      :   LBRACE global_interaction_seq RBRACE {
                                                                         $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
@@ -272,55 +237,51 @@ global_interaction          :   message   { $$ = $1; }
                             |   parallel  { $$ = $1; }
                             |   recursion { $$ = $1; }
                             |   continue  { $$ = $1; }
+                            |   for       { $$ = $1; }
                             ;
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-message                     :   message_signature FROM role_name role_param_binder TO role_name role_param SEMICOLON {
-                                                                                                                        $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
-                                                                                                                        if (NULL == $4) {
-                                                                                                                            $$->interaction->from_type = ST_ROLE_NORMAL;
-                                                                                                                            $$->interaction->from = strdup($3);
-                                                                                                                        } else { // Parametrised
-                                                                                                                            $$->interaction->from_type = ST_ROLE_PARAMETRISED;
-                                                                                                                            $$->interaction->p_from = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-                                                                                                                            $$->interaction->p_from->name = strdup($3);
-                                                                                                                            $$->interaction->p_from->bindvar = strdup($4->bindvar);
-                                                                                                                            $$->interaction->p_from->idxcount = $4->count;
-                                                                                                                            $$->interaction->p_from->indices = (long *)calloc(sizeof(long), $$->interaction->p_from->idxcount);
-                                                                                                                            memcpy($$->interaction->p_from->indices, $4->params, sizeof(long) * $$->interaction->p_from->idxcount);
-                                                                                                                        }
+message_bool_cond           :                                          { $$ = NULL; }
+                            |   IF simple_expr EQUAL EQUAL simple_expr { $$ = st_expr_binexpr($2, ST_EXPR_TYPE_EQUAL, $5); /* Not general but we'd rather be restrictive */ }
 
-                                                                                                                        // At the moment, we only accept a single to-role
-                                                                                                                        $$->interaction->nto = 1;
-                                                                                                                        if (NULL == $7) {
-                                                                                                                            $$->interaction->to_type = ST_ROLE_NORMAL;
-                                                                                                                            $$->interaction->to = (char **)calloc(sizeof(char *), $$->interaction->nto);
-                                                                                                                            $$->interaction->to[0] = strdup($6);
-                                                                                                                        } else {
-                                                                                                                            $$->interaction->to_type = ST_ROLE_PARAMETRISED;
-                                                                                                                            $$->interaction->p_to = (parametrised_role_t **)calloc(sizeof(parametrised_role_t *), $$->interaction->nto);
-                                                                                                                            $$->interaction->p_to[0] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-                                                                                                                            $$->interaction->p_to[0]->name = strdup($6);
-                                                                                                                            $$->interaction->p_to[0]->bindvar = strdup($7->bindvar);
-                                                                                                                            $$->interaction->p_to[0]->idxcount = $7->count;
-                                                                                                                            $$->interaction->p_to[0]->indices = (long *)calloc(sizeof(long), $$->interaction->p_to[0]->idxcount);
-                                                                                                                            memcpy($$->interaction->p_to[0]->indices, $7->params, sizeof(long) * $$->interaction->p_to[0]->idxcount);
-                                                                                                                        }
+message                     :   message_signature FROM role_name role_param TO role_name role_param message_bool_cond SEMICOLON {
+                                                                                                                                  $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
+                                                                                                                                  $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                                  $$->interaction->from->name = strdup($3);
+                                                                                                                                  $$->interaction->from->param = $4;
 
-                                                                                                                        $$->interaction->msgsig = $1;
+                                                                                                                                  // At the moment, we only accept a single to-role
+                                                                                                                                  $$->interaction->nto = 1;
+                                                                                                                                  $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t), $$->interaction->nto);
+                                                                                                                                  $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                                  $$->interaction->to[0]->name = strdup($6);
+                                                                                                                                  $$->interaction->to[0]->param = $7;
 
-                                                                                                                        // Release role-parameter bindings
-                                                                                                                        role_params.count = 0;
-                                                                                                                        free(role_params.params_ptrs);
-                                                                                                                     }
-                            ;
+                                                                                                                                  // Messge signature
+                                                                                                                                  $$->interaction->msgsig = $1;
+
+                                                                                                                                  // Message condition
+                                                                                                                                  $$->interaction->cond = $8; // Boolean condition
+                                                                                                                                }
+                                ;
+
+/* --------------------------- For --------------------------- */
+
+for                         :    FOR LPAREN IDENT COLON range_expr RPAREN global_interaction_blk {
+                                                                                                   $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                   $$->forloop->range = $5;
+
+                                                                                                   $$->nchild = 1;
+                                                                                                   $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                                   $$->children[0] = $7;
+                                                                                                 }
 
 /* --------------------------- Choice --------------------------- */
 
 choice                      :   CHOICE AT role_name global_interaction_blk or_global_interaction_blk {
                                                                                                         $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CHOICE);
-                                                                                                        $$->choice->at = strdup($3);                                                                                                       
+                                                                                                        $$->choice->at = strdup($3);
 
                                                                                                         $$->nchild = $5->nchild + 1;
                                                                                                         $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
@@ -352,19 +313,19 @@ parallel                    :   PAR global_interaction_blk and_global_interactio
                             ;
 
 and_global_interaction_blk  :                                                         {  $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);  }
-                            |   AND global_interaction_blk and_global_interaction_blk {  $$ = st_node_append($3, $2);  } 
+                            |   AND global_interaction_blk and_global_interaction_blk {  $$ = st_node_append($3, $2);                                          }
                             ;
 
 /* --------------------------- Recursion --------------------------- */
 
-recursion                   :   REC IDENT global_interaction_blk {  
+recursion                   :   REC IDENT global_interaction_blk {
                                                                     $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECUR);
                                                                     $$->recur->label = strdup($2);
 
                                                                     $$->nchild = $3->nchild;
                                                                     $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
                                                                     memcpy($$->children, $3->children, sizeof(st_node *) * $$->nchild);
-                                                                 } 
+                                                                 }
                             ;
 
 continue                    :   CONTINUE IDENT SEMICOLON {
@@ -375,18 +336,16 @@ continue                    :   CONTINUE IDENT SEMICOLON {
 
 /* --------------------------- Local Protocols --------------------------- */
 
-local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_decl_list RPAREN local_prot_body  { 
+local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_decl_list RPAREN local_prot_body  {
                                                                                                                   st_tree_set_name(tree, $3);
                                                                                                                   tree->info->type = ST_TYPE_LOCAL;
                                                                                                                   tree->info->myrole = strdup($5);
                                                                                                                 }
-                            |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE DIGITS RSQUARE LPAREN role_decl_list RPAREN local_prot_body  { 
-                                                                                                                                   st_tree_set_name(tree, $3);
-                                                                                                                                   tree->info->type = ST_TYPE_PARAMETRISED;
-                                                                                                                                   assert($7<1000 && $9<1000);
-                                                                                                                                   tree->info->myrole = (char *)calloc(sizeof(char), strlen($5)+4+6+1);
-                                                                                                                                   sprintf(tree->info->myrole, "%s[%lu..%lu]", $5, $7, $9);
-                                                                                                                                 }
+                            |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE simple_expr RSQUARE LPAREN role_decl_list RPAREN local_prot_body {
+                                                                                                                                                             st_tree_set_name(tree, $3);
+                                                                                                                                                             tree->info->type = ST_TYPE_PARAMETRISED;
+                                                                                                                                                             tree->info->myrole = strdup($5);
+                                                                                                                                                           }
                             ;
 
 /* --------------------------- Local Interaction Blocks and Sequences --------------------------- */
@@ -418,6 +377,7 @@ local_interaction_seq       :                                             {
 
 local_interaction           :   send        { $$ = $1; }
                             |   receive     { $$ = $1; }
+                            |   l_for       { $$ = $1; }
                             |   l_parallel  { $$ = $1; }
                             |   l_choice    { $$ = $1; }
                             |   l_recursion { $$ = $1; }
@@ -426,75 +386,71 @@ local_interaction           :   send        { $$ = $1; }
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-message_condition           :                                 { $$ = NULL; }
-                            |  IF role_name role_param_binder {
-                                                                assert($3!=NULL /* message_condition cannot be NULL */);
-                                                                $$ = (msg_cond_t *)malloc(sizeof(msg_cond_t));
-                                                                $$->name = strdup($2);
-                                                                $$->bindvar = strdup($3->bindvar);
-                                                                $$->idxcount = $3->count;
-                                                                $$->indices = (long *)calloc(sizeof(long), $$->idxcount);
-                                                                memcpy($$->indices, $3->params, sizeof(long) * $$->idxcount);
-                                                              }
-
-send                        :   message_signature TO role_name role_param_binder message_condition SEMICOLON {
-                                                                                                                $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
-
-                                                                                                                // From
-                                                                                                                $$->interaction->from = NULL;
-
-                                                                                                                // To
-                                                                                                                $$->interaction->nto = 1;
-                                                                                                                if (NULL == $4) {
-                                                                                                                    $$->interaction->to_type = ST_ROLE_NORMAL;
-                                                                                                                    $$->interaction->to = (char **)calloc(sizeof(char *), $$->interaction->nto);
-                                                                                                                    $$->interaction->to[0] = strdup($3);
-                                                                                                                } else {
-                                                                                                                    $$->interaction->to_type = ST_ROLE_PARAMETRISED;
-                                                                                                                    $$->interaction->p_to = (parametrised_role_t **)calloc(sizeof(parametrised_role_t *), $$->interaction->nto);
-                                                                                                                    $$->interaction->p_to[0] = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-                                                                                                                    $$->interaction->p_to[0]->name = strdup($3);
-                                                                                                                    $$->interaction->p_to[0]->bindvar = strdup($4->bindvar);
-                                                                                                                    $$->interaction->p_to[0]->idxcount = $4->count;
-                                                                                                                    $$->interaction->p_to[0]->indices = (long *)calloc(sizeof(long), $$->interaction->p_to[0]->idxcount);
-                                                                                                                    memcpy($$->interaction->p_to[0]->indices, $4->params, sizeof(long) * $$->interaction->p_to[0]->idxcount);
-                                                                                                                }
-
-                                                                                                                // Message signature
-                                                                                                                $$->interaction->msgsig = $1;
-
-                                                                                                                // Message condition
-                                                                                                                $$->interaction->msg_cond = $5;
-                                                                                                             }
+message_condition           :                        { $$ = NULL; }
+                            |   role_name role_param {
+                                                       assert($2!=NULL /* message_condition cannot be NULL */);
+                                                       $$ = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+                                                       $$->name = strdup($1);
+                                                       $$->param = $2;
+                                                     }
                             ;
 
-receive                     :   message_signature FROM role_name role_param_binder message_condition SEMICOLON {
-                                                                                                                 $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+l_message_bool_cond         :                         { $$ = NULL; }
+                            |   IF                    { $$ = NULL; }
+                            |   message_bool_cond AND { $$ = $1; /* message_bool_cond contains IF */ }
+                            ;
 
-                                                                                                                 // From
-                                                                                                                 if (NULL == $4) {
-                                                                                                                     $$->interaction->from_type = ST_ROLE_NORMAL;
-                                                                                                                     $$->interaction->from = strdup($3);
-                                                                                                                 } else { // Parametrised
-                                                                                                                     $$->interaction->from_type = ST_ROLE_PARAMETRISED;
-                                                                                                                     $$->interaction->p_from = (parametrised_role_t *)malloc(sizeof(parametrised_role_t));
-                                                                                                                     $$->interaction->p_from->name = strdup($3);
-                                                                                                                     $$->interaction->p_from->bindvar = strdup($4->bindvar);
-                                                                                                                     $$->interaction->p_from->idxcount = $4->count;
-                                                                                                                     $$->interaction->p_from->indices = (long *)calloc(sizeof(long), $$->interaction->p_from->idxcount);
-                                                                                                                     memcpy($$->interaction->p_from->indices, $4->params, sizeof(long) * $$->interaction->p_from->idxcount);
-                                                                                                                 }
+send                        :   message_signature TO role_name role_param l_message_bool_cond message_condition SEMICOLON {
+                                                                                                                               $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
 
-                                                                                                                 // To
-                                                                                                                 $$->interaction->nto = 0;
-                                                                                                                 $$->interaction->to = NULL;
+                                                                                                                               // From
+                                                                                                                               $$->interaction->from = NULL;
 
-                                                                                                                 // Message signature
-                                                                                                                 $$->interaction->msgsig = $1;
+                                                                                                                               // To
+                                                                                                                               $$->interaction->nto = 1;
+                                                                                                                               $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t *), $$->interaction->nto);
+                                                                                                                               $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                               $$->interaction->to[0]->name = strdup($3);
+                                                                                                                               $$->interaction->to[0]->param = $4;
 
-                                                                                                                 // Message condition
-                                                                                                                 $$->interaction->msg_cond = $5;
-                                                                                                               }
+                                                                                                                               // Message signature
+                                                                                                                               $$->interaction->msgsig = $1;
+
+                                                                                                                               // Message condition
+                                                                                                                               $$->interaction->cond = $5; // Boolean condition
+                                                                                                                               $$->interaction->msg_cond = $6; // Role condition
+                                                                                                                             }
+                            ;
+
+receive                     :   message_signature FROM role_name role_param l_message_bool_cond message_condition SEMICOLON {
+                                                                                                                              $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+                                                                                                                              $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                                              $$->interaction->from->name = strdup($3);
+                                                                                                                              $$->interaction->from->param = $4;
+
+                                                                                                                              // To
+                                                                                                                              $$->interaction->nto = 0;
+                                                                                                                              $$->interaction->to = NULL;
+
+                                                                                                                              // Message signature
+                                                                                                                              $$->interaction->msgsig = $1;
+
+                                                                                                                              // Message condition
+                                                                                                                              $$->interaction->cond = $5; // Boolean condition
+                                                                                                                              $$->interaction->msg_cond = $6; // Role condition
+                                                                                                                            }
+                            ;
+
+/* --------------------------- Choice --------------------------- */
+
+l_for                       :    FOR LPAREN IDENT COLON range_expr RPAREN local_interaction_blk {
+                                                                                                  $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                  $$->forloop->range = $5;
+
+                                                                                                  $$->nchild = 1;
+                                                                                                  $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                                  $$->children[0] = $7;
+                                                                                                }
                             ;
 
 /* --------------------------- Choice --------------------------- */
@@ -509,15 +465,15 @@ or_local_interaction_blk    :                                                   
 /* --------------------------- Parallel --------------------------- */
 
 l_parallel                  :   PAR local_interaction_blk and_local_interaction_blk {
-                                                                                        $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_PARALLEL);
-                                                                                        $$->nchild = 1 + $3->nchild;
-                                                                                        $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
-                                                                                        $$->children[0] = $2;
-                                                                                        int i;
-                                                                                        for (i=0; i<$3->nchild; ++i) {
-                                                                                            $$->children[1+i] = $3->children[i];
-                                                                                        }
-                                                                                    }
+                                                                                       $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_PARALLEL);
+                                                                                       $$->nchild = 1 + $3->nchild;
+                                                                                       $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                       $$->children[0] = $2;
+                                                                                       int i;
+                                                                                       for (i=0; i<$3->nchild; ++i) {
+                                                                                         $$->children[1+i] = $3->children[i];
+                                                                                       }
+                                                                                     }
                             ;
 
 and_local_interaction_blk   :                                                       {  $$= st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT); }
@@ -526,7 +482,7 @@ and_local_interaction_blk   :                                                   
 
 /* --------------------------- Recursion --------------------------- */
 
-l_recursion                 :   REC IDENT local_interaction_blk {  
+l_recursion                 :   REC IDENT local_interaction_blk {
                                                                     $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECUR);
                                                                     $$->recur->label = strdup($2);
 

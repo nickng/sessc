@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
       {"help",    no_argument,       0, 'h'},
       {0, 0, 0, 0}
     };
-  
+
     int option_idx = 0;
     option = getopt_long(argc, argv, "p:o:scvVh", long_options, &option_idx);
 
@@ -126,6 +126,7 @@ int main(int argc, char *argv[])
     assert(0 /* Well-formedness checks unimplemented */);
   }
 
+  /*
   if (project_role != NULL) {
     if (verbosity_level > 0) fprintf(stderr, "Projection of %s for %s\n", scribble_file, project_role);
     st_tree *projected_tree = scribble_project(tree, project_role);
@@ -134,6 +135,7 @@ int main(int argc, char *argv[])
     scribble_print(projected_tree);
     st_tree_free(projected_tree);
   }
+  */
 
   st_tree_free(tree);
 

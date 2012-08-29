@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include "st_node.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * \brief Set whether scribble pretty printer uses colour.
  *
@@ -20,6 +24,8 @@
  */
 int scribble_colour_mode(int colour_mode);
 
+void scribble_fprint_expr(FILE *stream, st_expr_t *expr);
+
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
 void scribble_fprint_send(FILE *stream, st_node *node, int indent);
@@ -28,6 +34,7 @@ void scribble_fprint_choice(FILE *stream, st_node *node, int indent);
 void scribble_fprint_parallel(FILE *stream, st_node *node, int indent);
 void scribble_fprint_recur(FILE *stream, st_node *node, int indent);
 void scribble_fprint_continue(FILE *stream, st_node *node, int indent);
+void scribble_fprint_for(FILE *stream, st_node *node, int indent);
 void scribble_fprint_node(FILE *stream, st_node *node, int indent);
 
 /**
@@ -46,5 +53,8 @@ void scribble_fprint(FILE *stream, st_tree *tree);
  */
 void scribble_print(st_tree *tree);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SCRIBBLE__PRINT__H__

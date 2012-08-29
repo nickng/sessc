@@ -15,21 +15,53 @@ extern "C" {
 
 #define ST_NODE_ROOT     0
 #define ST_NODE_SENDRECV 1
-#define ST_NODE_CHOICE   2 
+#define ST_NODE_CHOICE   2
 #define ST_NODE_PARALLEL 3
-#define ST_NODE_RECUR    4 
+#define ST_NODE_RECUR    4
 #define ST_NODE_CONTINUE 5
+#define ST_NODE_FOR      6
 
 // Endpoint-specific
-#define ST_NODE_SEND     6
-#define ST_NODE_RECV     7
-
-#define ST_ROLE_NORMAL       0
-#define ST_ROLE_PARAMETRISED 1
+#define ST_NODE_SEND     7
+#define ST_NODE_RECV     8
 
 #define ST_TYPE_LOCAL        0
 #define ST_TYPE_GLOBAL       1
 #define ST_TYPE_PARAMETRISED 2
+
+// Expression related
+#define ST_EXPR_TYPE_CONST 1
+#define ST_EXPR_TYPE_VAR   2
+#define ST_EXPR_TYPE_RANGE 3
+#define ST_EXPR_TYPE_PLUS  4
+#define ST_EXPR_TYPE_MINUS 5
+#define ST_EXPR_TYPE_MULTIPLY 6
+#define ST_EXPR_TYPE_DIVIDE 7
+#define ST_EXPR_TYPE_MODULO 8
+#define ST_EXPR_TYPE_SHL 9
+#define ST_EXPR_TYPE_SHR 10
+#define ST_EXPR_TYPE_TUPLE 11
+#define ST_EXPR_TYPE_EQUAL 12
+#define ST_EXPR_TYPE_BIND 13
+
+
+// To represent mathematical expressions
+struct __st_bin_expr_t {
+  struct __st_expr_t *left;
+  struct __st_expr_t *right;
+};
+
+struct __st_expr_t {
+  int type;
+  union {
+    struct __st_bin_expr_t *binexpr;
+    int constant;
+    char *variable;
+  };
+};
+
+typedef struct __st_bin_expr_t st_bin_expr_t;
+typedef struct __st_expr_t st_expr_t;
 
 
 typedef struct {
@@ -44,32 +76,24 @@ typedef struct {
   char *payload;
 } st_node_msgsig_t;
 
+
 typedef struct {
   char *name;
-  char *bindvar;
-  int idxcount;
-  long *indices;
-} parametrised_role_t;
+  st_expr_t *param;
+} st_role_t;
 
-typedef parametrised_role_t msg_cond_t;
+typedef st_role_t msg_cond_t;
 
 typedef struct {
   st_node_msgsig_t msgsig;
+
   int nto;
+  st_role_t **to;
 
-  int to_type; // ST_ROLE_NORMAL or ST_ROLE_PARAMETRISED
-  union {
-    char **to;
-    parametrised_role_t **p_to;
-  };
+  st_role_t *from;
 
-  int from_type; // ST_ROLE_NORMAL or ST_ROLE_PARAMETRISED
-  union {
-    char *from;
-    parametrised_role_t *p_from;
-  };
-
-  msg_cond_t *msg_cond;
+  msg_cond_t *msg_cond; // Pattern matching condition
+  st_expr_t *cond; // Boolean condition
 } st_node_interaction;
 
 
@@ -88,6 +112,11 @@ typedef struct {
 } st_node_choice;
 
 
+typedef struct {
+  st_expr_t *range;
+} st_node_for;
+
+
 struct __st_node {
   int type;
 
@@ -96,6 +125,7 @@ struct __st_node {
     st_node_choice *choice;
     st_node_recur *recur;
     st_node_continue *cont;
+    st_node_for *forloop;
   };
 
   int nchild;
@@ -110,7 +140,7 @@ struct __st_node {
 typedef struct {
   char *name;
   int nrole;
-  parametrised_role_t **roles;
+  st_role_t **roles;
 
   int nimport;
   st_tree_import_t **imports;
@@ -184,14 +214,13 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role);
 /**
  * \brief Add a role (with parameter) to protocol.
  *
- * @param[in,out] tree Session type tree of protocol.
- * @param[in]     role Role name to add.
- * @param[in]     from beginning of index range of parametrised role
- * @param[in]     to   ending of index range of parametrised role
+ * @param[in,out] tree  Session type tree of protocol.
+ * @param[in]     role  Role name to add.
+ * @param[in]     param Expression of parametrised role
  *
  * \returns Updated session types tree.
  */
-st_tree *st_tree_add_role_param(st_tree *tree, const char *role, unsigned long from, unsigned long to);
+st_tree *st_tree_add_role_param(st_tree *tree, const char *role, st_expr_t *param);
 
 
 /**
@@ -252,6 +281,15 @@ void st_node_print_r(const st_node *node, int indent);
  */
 void st_node_print(const st_node *node, int indent);
 
+
+/**
+ * \brief Pretty print an expression.
+ *
+ * @param[in] e   Expression to print.
+ */
+void st_expr_print(st_expr_t *e);
+
+
 /**
  * \brief Resets the 'marked' flag on a st_node for debugging purposes.
  *
@@ -292,6 +330,16 @@ int st_node_compare_msgsig(const st_node_msgsig_t msgsig, const st_node_msgsig_t
  * \returns 1 if identical, 0 otherwise.
  */
 int st_node_compare(st_node *node, st_node *other);
+
+
+st_expr_t *st_expr_constant(int val);
+
+
+st_expr_t *st_expr_variable(char *var);
+
+
+st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right);
+
 
 
 #ifdef __cplusplus

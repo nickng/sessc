@@ -9,6 +9,10 @@
 
 #include "st_node.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 st_node *scribble_project_root(st_node *node, char *projectrole);
 st_node *scribble_project_choice(st_node *node, char *projectrole);
 st_node *scribble_project_parallel(st_node *node, char *projectrole);
@@ -25,5 +29,9 @@ st_node *scribble_project_node(st_node *node, char *projectrole);
  * \returns Projected st_tree.
  */
 st_tree *scribble_project(st_tree *global, char *role);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // SCRIBBLE__PROJECT__H__

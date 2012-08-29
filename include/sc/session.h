@@ -51,5 +51,6 @@ void session_end(session *s);
  */
 void session_dump(const session *s);
 
-
+int sc_index_match(const session *s, int bounds[], int dimension);
+int sc_eval_cond(int cond);
 #endif // SC__SESSION_H__
