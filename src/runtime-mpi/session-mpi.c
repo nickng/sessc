@@ -33,6 +33,16 @@ long long DEBUG_prog_end_time;
 
 sc_req_tbl_t* sc_req_tbl;
 
+/**
+ * This function takes an assigned MPI rank
+ * and return the respective role.
+ */
+static role *sc_rank_role(session *s, int mpirank)
+{
+  fprintf(stderr, "Unrecognised rank %d\n", mpirank);
+  return NULL;
+}
+
 
 /**
  * Helper function to lookup a role in a session.
@@ -177,9 +187,11 @@ int session_init(int *argc, char ***argv, session **s, const char *scribble)
   int process_idx; // For iterating expanded roles (for session, = MPI rank)
   for (role_idx=0, process_idx=0; role_idx<tree->info->nrole; ++role_idx) {
     assert(process_idx < sess->nrole);
-    assert(tree->info->roles[role_idx]->idxcount >= 0);
-    printf("Role_idx: %d\n", role_idx);
-    if (tree->info->roles[role_idx]->idxcount > 0) { // Is parametrised
+    assert(tree->info->roles[role_idx] != NULL);
+    if (tree->info->roles[role_idx]->param != NULL) { // Is parametrised
+      // TODO Evaluate N = command line argument
+      // st_expr_subst_var(tree->info->roles[role_idx]->param, "N", value);
+      /*
       sess->is_parametrised |= 1;
       int param_role_idx;
       for (param_role_idx=0; param_role_idx < tree->info->roles[role_idx]->idxcount; ++param_role_idx) {
@@ -197,6 +209,7 @@ int session_init(int *argc, char ***argv, session **s, const char *scribble)
 
         ++process_idx;
       }
+      */
     } else { // Is not parametrised
       sess->roles[process_idx] = (role *)malloc(sizeof(role));
       sess->roles[process_idx]->type = SESSION_ROLE_P2P;

@@ -359,7 +359,6 @@ void session_init(int *argc, char ***argv, session **s, const char *scribble)
 #endif
 
   sess->r = &find_role_in_session;
-  sess->r_idx = &find_indexed_role_in_session;
 
   free(tree);
 #ifdef __DEBUG__

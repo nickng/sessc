@@ -828,6 +828,23 @@ void st_expr_eval(st_expr_t *e)
   }
 }
 
+void st_expr_subst_var(st_expr_t *e, const char *name, int value)
+{
+  assert(e->type > 0);
+  if (e->type == ST_EXPR_TYPE_CONST) return;
+
+  if (e->type == ST_EXPR_TYPE_VAR) {
+    if (0 == strcmp(name, e->variable)) {
+      e->type = ST_EXPR_TYPE_CONST;
+      e->constant = value;
+    }
+    return;
+  }
+
+  st_expr_subst_var(e->binexpr->left, name, value);
+  st_expr_subst_var(e->binexpr->right, name, value);
+}
+
 void st_expr_print(st_expr_t *e)
 {
   assert(e->type > 0);
