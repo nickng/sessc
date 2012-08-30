@@ -221,7 +221,7 @@ st_node *st_node_canonicalise(st_node *node)
 {
   node = st_node_recur_simplify(node);
   node = st_node_singleton_leaf_upmerge(node);
-  while (st_node_has_empty_leaf(node)) {
+  while (st_node_has_empty_leaf(node) && node->nchild != 0) {
     node = st_node_empty_leaf_remove(node);
     node = st_node_singleton_leaf_upmerge(node);
   }
