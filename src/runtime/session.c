@@ -35,7 +35,7 @@ long long DEBUG_prog_end_time;
  * Helper function to lookup a role in a session.
  *
  */
-role *find_role_in_session(session *s, char *role_name)
+static role *find_role_in_session(session *s, char *role_name)
 {
   int role_idx;
 #ifdef __DEBUG__
