@@ -1,7 +1,7 @@
 ROOT := ../..
 include $(ROOT)/Common.mk
 
-OBJS := $(BUILD_DIR)/session-mpi.o $(BUILD_DIR)/primitives-mpi.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o $(BUILD_DIR)/st_node.o
+OBJS := $(BUILD_DIR)/debug.o $(BUILD_DIR)/session-mpi.o $(BUILD_DIR)/primitives-mpi.o $(BUILD_DIR)/utils.o $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o $(BUILD_DIR)/st_node.o
 
 all: $(OBJS) $(BUILD_DIR)/libsc-mpi.a
 

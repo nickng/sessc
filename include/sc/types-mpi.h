@@ -6,10 +6,10 @@
  * type definitions (MPI version).
  */
 
-#include <mpi.h>
+#include "mpi.h"
 
-#define SESSION_ROLE_P2P     0
-#define SESSION_ROLE_GRP     1
+#define SESSION_ROLE_P2P 0
+#define SESSION_ROLE_GRP 1
 
 
 /**
@@ -26,6 +26,7 @@ typedef struct {
 struct role_endpoint
 {
   char *name;
+  char *basename;
   int rank;
   MPI_Comm comm; // MPI Communicator
 };
@@ -34,7 +35,9 @@ struct role_endpoint
 struct role_group
 {
   char *name;
+  int root; // The only non-parametrised role
   MPI_Comm comm; // MPI Communicator
+  MPI_Group group;
 };
 
 
@@ -55,7 +58,7 @@ struct role_t
 
   union {
     struct role_endpoint *p2p;
-    struct role_endpoint *grp;
+    struct role_group *grp;
   };
 };
 
@@ -73,11 +76,17 @@ struct session_t
   int nrole; // # of roles (expanded) in session (size)
   role **roles; // Pointers to roles in session
   char *name;
-  int is_parametrised;
-  int myrole; // My rank
+  char *basename;
+  int myindex;
+  int *coords;
+  int _myrank; // My rank, don't use this directly
 
   // Lookup functions.
-  role *(*r)(struct session_t *, char *); // P2P and Group role
+  role *(*role)(struct session_t *s, char *name); // P2P and builtin groups
+  role *(*rolei)(struct session_t *s, char *name, int index); // Index addressing
+  role *(*idx)(struct session_t *s, int offset); // Index offset
+  role *(*coord)(struct session_t *s, int *offset_vec); // Vector offset
+  role *(*param)(struct session_t *s, char *param_name); // Parametrised groups
 };
 
 typedef struct session_t session;

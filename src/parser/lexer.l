@@ -44,7 +44,7 @@ comment                 "//"([^\n])*\n
 "create"                { DEBUG_PRINT("Token: CREATE '%s'\n");        return CREATE;        }
 "do"                    { DEBUG_PRINT("Token: DO '%s'\n");            return DO;            }
 "enter"                 { DEBUG_PRINT("Token: ENTER '%s'\n");         return ENTER;         }
-"for"                   { DEBUG_PRINT("Token: FOR '%s'\n");           return FOR;           }
+"foreach"               { DEBUG_PRINT("Token: FOREACH '%s'\n");       return FOREACH;       }
 "from"                  { DEBUG_PRINT("Token: FROM '%s'\n");          return FROM;          }
 "global"                { DEBUG_PRINT("Token: GLOBAL '%s'\n");        return GLOBAL;        }
 "import"                { DEBUG_PRINT("Token: IMPORT '%s'\n");        return IMPORT;        }

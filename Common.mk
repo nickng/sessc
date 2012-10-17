@@ -16,10 +16,12 @@ DEBUG   := -g -D__DEBUG__
 RELEASE := -O3
 PROFILE := -g -pg
 
-CC      := gcc
-MPICC   := mpicc
+CC      := clang
+MPICC   := mpicc.openmpi
 CFLAGS  := -Wall -I$(INCLUDE_DIR)
-LDFLAGS := -L$(LIB_DIR) -lsc -lzmq
+LDFLAGS := -L$(LIB_DIR) -L/usr/include/mpi -lsc-mpi -lmpi -lm
+
+# TARGET := debug
 
 ifneq (,$(findstring debug,$(TARGET)))
 	CFLAGS += $(DEBUG)

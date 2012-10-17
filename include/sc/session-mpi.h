@@ -31,7 +31,7 @@ int session_init(int *argc, char ***argv, session **s, const char *scribble);
  * @param[in,out] s     Session the new role group to create in.
  * @param[in]     name  Name of the new role group.
  * @param[in]     nrole Number of roles to group together.
- * @param[in]     ...   The handles to existing roles to group together. 
+ * @param[in]     ...   The handles to existing roles to group together.
  *
  * \returns Handle to the newly created role group.
  */
@@ -48,10 +48,26 @@ void session_end(session *s);
 
 /**
  * \brief Dump content of an established session.
- *  
+ *
  * @param[in] s Session to dump
  */
 void session_dump(const session *s);
 
+
+/**
+ * \brief Dump content of an established session (debug mode).
+ *  
+ * @param[in] s Session to dump
+ */
+void session_ddump(const session *s);
+
+
+/**
+ * \brief Check if a given coordinate is in range
+ */
+int sc_range(const session *s, int *from, int *to);
+
+void session_rolegrp_add(session *s, char *name, int root, MPI_Comm comm, MPI_Group group);
+void session_role_add(session *s, char *name, int rank, MPI_Comm comm);
 
 #endif // SC__SESSION_MPI_H__

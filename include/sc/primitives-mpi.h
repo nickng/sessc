@@ -14,130 +14,88 @@
 #define SC_REQ_MGR_RECV 1
 
 /**
- * \brief Send an integer.
+ * \brief Send integer.
  *
- * @param[in] val   Value to send
+ * @param[in] vals  Values to send
+ * @param[in] count Number of elements to send
  * @param[in] r     Role to send to
  * @param[in] label Message label
  *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
  */
-int send_int(int val, role *r, int label);
+int send_int(int *vals, int count, role *r, int label);
 
 
 /**
- * \brief Send an integer.
+ * \brief Receive integer (pre-allocated).
  *
- * @param[in] arr   Array to send
- * @param[in] count Number of elements in array
+ * @param[out] vals        Pointer to variable storing recevied value
+ * @param[in]  count       Number of elements to receive
+ * @param[in]  r           Role to receive from
+ * @param[in]  match_label Message label to match
+ *
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
+ */
+int recv_int(int *vals, int count, role *r, int match_label);
+
+
+/**
+ * \brief All-Broadcast integer.
+ *
+ * @param[in,out] vals  Value to send
+ * @param[in]     count Number of elements to send/receive
+ * @param[in]     g     Group role to broadcast to
+ * 
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
+ */
+int alltoall_int(int *vals, int count, role *g);
+
+
+/**
+ * \brief Send double.
+ *
+ * @param[in] vals  Values to send
+ * @param[in] count Number of elements to send
  * @param[in] r     Role to send to
  * @param[in] label Message label
  *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
  */
-int send_int_array(const int arr[], size_t count, role *r, int label);
+int send_double(double *vals, int count, role *r, int label);
 
 
 /**
- * \brief Send an integer to multiple roles.
+ * \brief Receive double (pre-allocated).
  *
- * @param[in] val         Value to send
- * @param[in] nr_of_roles Number of roles to send to 
- * @param[in] ...         Variable number (subject to nr_of_roles)
- *                        of role variables
+ * @param[out] vals        Pointer to variable storing recevied value
+ * @param[in]  count       Number of elements to receive
+ * @param[in]  r           Role to receive from
+ * @param[in]  match_label Message label to match
  *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_recv)
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
  */
-int vsend_int(int val, int nr_of_roles, ...);
+int recv_double(double *vals, int count, role *r, int match_label);
 
 
 /**
- * \brief Receive an integer (pre-allocated).
+ * \brief All-Broadcast integer.
  *
- * @param[out] dst Pointer to variable storing recevied value
- * @param[in]  r   Role to receive from
- *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_recv)
- */
-int recv_int(int *dst, role *r);
-
-
-/**
- * \brief Receive an integer array (pre-allocated).
- *
- * @param[out]    arr   Pointer to array storing recevied value
- * @param[in,out] count Number of elements in array
- * @param[in]     r     Role to receive from
- *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_recv)
- */
-int recv_int_array(int *arr, size_t count, role *r);
-
-
-/**
- * \breif Broadcast an integer.
- *
- * @param[in] val   Value to send
- * @param[in] s     Session to broadcast to
+ * @param[in,out] vals  Value to send
+ * @param[in]     count Number of elements to send/receive
+ * @param[in]     g     Group role to broadcast to
  * 
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
  */
-int bcast_int(int val, session *s);
-
-
-/**
- * \breif Broadcast an integer array.
- *
- * @param[in] arr   Array to send
- * @param[in] count Number of elements in array
- * @param[in] s     Session to broadcast to
- * 
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
- */
-int bcast_int_array(const int arr[], size_t count, session *s);
-
-
-/**
- * \brief Receive a broadcast integer.
- *
- * @param[out]    dst   Pointer to variable storing recevied value
- * @param[in]     s     Session to receive broadcast from
- *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
- */
-int brecv_int(int *dst, session *s);
-
-
-/**
- * \brief Receive a broadcast integer array (pre-allocated).
- *
- * @param[out]    arr   Pointer to array storing recevied value
- * @param[in,out] count Pointer to variable storing number of elements in array
- * @param[in]     s     Session to receive broadcast from
- *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_send)
- */
-int brecv_int_array(int *arr, size_t *count, session *s);
+int alltoall_double(double *vals, int count, role *g);
 
 
 /**
  * \brief Barrier synchronisation.
  *
- * @param[in] grp_role    Group role to perform barrier synchronisation on
- * @param[in] at_rolename Role name (string) to act as central coordinator
+ * @param[in] s Session to perform barrier synchronisation on
  *
- * \returns 0 if successful, -1 otherwise and set errno
- *          (See man page of zmq_recv)
+ * \returns SC_SUCCESS (==MPI_SUCCESS) if successful.
  */
-int barrier(role *grp_role, char *at_rolename);
+int barrier(session *s, int buffersync);
 
 #endif // SC__PRIMITIVES_MPI_H_

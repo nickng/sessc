@@ -12,7 +12,7 @@
 #include <sc/utils.h>
 
 #define SESSIONC_MAJOR 2
-#define SESSIONC_MINOR 0
-#define SESSIONC_PATCH 0-mpi
+#define SESSIONC_MINOR 1
+#define SESSIONC_PATCH 0
 
 #endif // SC_MPI_H__

@@ -14,7 +14,7 @@ include $(ROOT)/Common.mk
 
 .PHONY: docs
 
-all: scribble-tool runtime
+all: scribble-tool runtime runtime-mpi
 
 scribble-tool:
 	$(MAKE) --directory=$(SRC_DIR)/common
@@ -27,6 +27,8 @@ runtime:
 	$(MAKE) --directory=$(SRC_DIR)/scribble
 	$(MAKE) --directory=$(SRC_DIR)/connmgr
 	$(MAKE) --directory=$(SRC_DIR)/runtime
+
+runtime-mpi: runtime
 	$(MAKE) --directory=$(SRC_DIR)/runtime-mpi
 
 docs:

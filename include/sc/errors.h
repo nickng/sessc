@@ -5,6 +5,8 @@
 #define SC_SUCCESS 0
 
 // Protocol is invalid
-#define SC_ERR_PROTNVAL 1
+#define SC_ERR_PROTNVAL  1
+// Interaction type unsupported
+#define SC_ERR_ROLEINVAL 2
 
 #endif // SC__ERRORS_H__

@@ -26,7 +26,7 @@ static symbol_table_t symbol_table;
 %}
 
     /* Keywords */
-%token AND AS AT BY CATCH CHOICE CONTINUE CREATE DO ENTER FROM GLOBAL IMPORT INSTANTIATES INTERRUPTIBLE LOCAL OR PAR PROTOCOL REC ROLE SPAWNS THROW TO WITH IF CONST RANGE FOR
+%token AND AS AT BY CATCH CHOICE CONTINUE CREATE DO ENTER FROM GLOBAL IMPORT INSTANTIATES INTERRUPTIBLE LOCAL OR PAR PROTOCOL REC ROLE SPAWNS THROW TO WITH IF CONST RANGE FOREACH
 
     /* Symbols */
 %token LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE LANGLE RANGLE COMMA COLON SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE MODULO SHL SHR NUMRANGE TUPLE
@@ -36,10 +36,10 @@ static symbol_table_t symbol_table;
 %token <num> DIGITS
 
 %type <str> role_name message_operator message_payload type_decl_from type_decl_as
-%type <expr> simple_expr role_param range_expr expr_expr tuple_expr message_bool_cond l_message_bool_cond
+%type <expr> simple_expr role_param range_expr expr_expr tuple_expr
 %type <msg_cond> message_condition
-%type <node> message choice parallel recursion continue for
-%type <node> send receive l_choice l_parallel l_recursion l_for
+%type <node> message choice parallel recursion continue foreach
+%type <node> send receive l_choice l_parallel l_recursion l_foreach
 %type <node> global_interaction global_interaction_blk and_global_interaction_blk or_global_interaction_blk
 %type <node> local_interaction  local_interaction_blk  and_local_interaction_blk  or_local_interaction_blk
 %type <node_list> global_interaction_seq local_interaction_seq
@@ -237,15 +237,12 @@ global_interaction          :   message   { $$ = $1; }
                             |   parallel  { $$ = $1; }
                             |   recursion { $$ = $1; }
                             |   continue  { $$ = $1; }
-                            |   for       { $$ = $1; }
+                            |   foreach   { $$ = $1; }
                             ;
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-message_bool_cond           :                                          { $$ = NULL; }
-                            |   IF simple_expr EQUAL EQUAL simple_expr { $$ = st_expr_binexpr($2, ST_EXPR_TYPE_EQUAL, $5); /* Not general but we'd rather be restrictive */ }
-
-message                     :   message_signature FROM role_name role_param TO role_name role_param message_bool_cond SEMICOLON {
+message                     :   message_signature FROM role_name role_param TO role_name role_param message_condition SEMICOLON {
                                                                                                                                   $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SENDRECV);
                                                                                                                                   $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
                                                                                                                                   $$->interaction->from->name = strdup($3);
@@ -262,20 +259,20 @@ message                     :   message_signature FROM role_name role_param TO r
                                                                                                                                   $$->interaction->msgsig = $1;
 
                                                                                                                                   // Message condition
-                                                                                                                                  $$->interaction->cond = $8; // Boolean condition
+                                                                                                                                  $$->interaction->msg_cond = $8; // Boolean condition
                                                                                                                                 }
-                                ;
+                            ;
 
 /* --------------------------- For --------------------------- */
 
-for                         :    FOR LPAREN IDENT COLON range_expr RPAREN global_interaction_blk {
-                                                                                                   $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
-                                                                                                   $$->forloop->range = $5;
+foreach                     :    FOREACH LPAREN IDENT COLON range_expr RPAREN global_interaction_blk {
+                                                                                                       $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                       $$->forloop->range = $5;
 
-                                                                                                   $$->nchild = 1;
-                                                                                                   $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
-                                                                                                   $$->children[0] = $7;
-                                                                                                 }
+                                                                                                       $$->nchild = 1;
+                                                                                                       $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                                       $$->children[0] = $7;
+                                                                                                     }
 
 /* --------------------------- Choice --------------------------- */
 
@@ -346,6 +343,11 @@ local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_de
                                                                                                                                                              tree->info->type = ST_TYPE_PARAMETRISED;
                                                                                                                                                              tree->info->myrole = strdup($5);
                                                                                                                                                            }
+                            |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE simple_expr TUPLE DIGITS NUMRANGE simple_expr RSQUARE LPAREN role_decl_list RPAREN local_prot_body {
+                                                                                                                                                                                                         st_tree_set_name(tree, $3);
+                                                                                                                                                                                                         tree->info->type = ST_TYPE_PARAMETRISED;
+                                                                                                                                                                                                         tree->info->myrole = strdup($5);
+                                                                                                                                                                                                       }
                             ;
 
 /* --------------------------- Local Interaction Blocks and Sequences --------------------------- */
@@ -377,7 +379,7 @@ local_interaction_seq       :                                             {
 
 local_interaction           :   send        { $$ = $1; }
                             |   receive     { $$ = $1; }
-                            |   l_for       { $$ = $1; }
+                            |   l_foreach   { $$ = $1; }
                             |   l_parallel  { $$ = $1; }
                             |   l_choice    { $$ = $1; }
                             |   l_recursion { $$ = $1; }
@@ -386,71 +388,64 @@ local_interaction           :   send        { $$ = $1; }
 
 /* --------------------------- Point-to-Point Message Transfer --------------------------- */
 
-message_condition           :                        { $$ = NULL; }
-                            |   role_name role_param {
-                                                       assert($2!=NULL /* message_condition cannot be NULL */);
-                                                       $$ = (msg_cond_t *)malloc(sizeof(msg_cond_t));
-                                                       $$->name = strdup($1);
-                                                       $$->param = $2;
-                                                     }
+message_condition           :                           { $$ = NULL; }
+                            |   IF role_name role_param {
+                                                          assert($2!=NULL /* message_condition cannot be NULL */);
+                                                          $$ = (msg_cond_t *)malloc(sizeof(msg_cond_t));
+                                                          $$->name = strdup($2);
+                                                          $$->param = $3;
+                                                        }
                             ;
 
-l_message_bool_cond         :                         { $$ = NULL; }
-                            |   IF                    { $$ = NULL; }
-                            |   message_bool_cond AND { $$ = $1; /* message_bool_cond contains IF */ }
+send                        :   message_signature TO role_name role_param message_condition SEMICOLON {
+                                                                                                        $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
+
+                                                                                                        // From
+                                                                                                        $$->interaction->from = NULL;
+
+                                                                                                        // To
+                                                                                                        $$->interaction->nto = 1;
+                                                                                                        $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t *), $$->interaction->nto);
+                                                                                                        $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                        $$->interaction->to[0]->name = strdup($3);
+                                                                                                        $$->interaction->to[0]->param = $4;
+
+                                                                                                        // Message signature
+                                                                                                        $$->interaction->msgsig = $1;
+
+                                                                                                        // Message condition
+                                                                                                        $$->interaction->msg_cond = $5; // Role condition
+                                                                                                      }
                             ;
 
-send                        :   message_signature TO role_name role_param l_message_bool_cond message_condition SEMICOLON {
-                                                                                                                               $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
+receive                     :   message_signature FROM role_name role_param message_condition SEMICOLON {
+                                                                                                          $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+                                                                                                          $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
+                                                                                                          $$->interaction->from->name = strdup($3);
+                                                                                                          $$->interaction->from->param = $4;
 
-                                                                                                                               // From
-                                                                                                                               $$->interaction->from = NULL;
+                                                                                                          // To
+                                                                                                          $$->interaction->nto = 0;
+                                                                                                          $$->interaction->to = NULL;
 
-                                                                                                                               // To
-                                                                                                                               $$->interaction->nto = 1;
-                                                                                                                               $$->interaction->to = (st_role_t **)calloc(sizeof(st_role_t *), $$->interaction->nto);
-                                                                                                                               $$->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
-                                                                                                                               $$->interaction->to[0]->name = strdup($3);
-                                                                                                                               $$->interaction->to[0]->param = $4;
+                                                                                                          // Message signature
+                                                                                                          $$->interaction->msgsig = $1;
 
-                                                                                                                               // Message signature
-                                                                                                                               $$->interaction->msgsig = $1;
-
-                                                                                                                               // Message condition
-                                                                                                                               $$->interaction->cond = $5; // Boolean condition
-                                                                                                                               $$->interaction->msg_cond = $6; // Role condition
-                                                                                                                             }
-                            ;
-
-receive                     :   message_signature FROM role_name role_param l_message_bool_cond message_condition SEMICOLON {
-                                                                                                                              $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-                                                                                                                              $$->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
-                                                                                                                              $$->interaction->from->name = strdup($3);
-                                                                                                                              $$->interaction->from->param = $4;
-
-                                                                                                                              // To
-                                                                                                                              $$->interaction->nto = 0;
-                                                                                                                              $$->interaction->to = NULL;
-
-                                                                                                                              // Message signature
-                                                                                                                              $$->interaction->msgsig = $1;
-
-                                                                                                                              // Message condition
-                                                                                                                              $$->interaction->cond = $5; // Boolean condition
-                                                                                                                              $$->interaction->msg_cond = $6; // Role condition
-                                                                                                                            }
+                                                                                                          // Message condition
+                                                                                                          $$->interaction->msg_cond = $5; // Role condition
+                                                                                                        }
                             ;
 
 /* --------------------------- Choice --------------------------- */
 
-l_for                       :    FOR LPAREN IDENT COLON range_expr RPAREN local_interaction_blk {
-                                                                                                  $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
-                                                                                                  $$->forloop->range = $5;
+l_foreach                   :    FOREACH LPAREN IDENT COLON range_expr RPAREN local_interaction_blk {
+                                                                                                      $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                      $$->forloop->range = $5;
 
-                                                                                                  $$->nchild = 1;
-                                                                                                  $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
-                                                                                                  $$->children[0] = $7;
-                                                                                                }
+                                                                                                      $$->nchild = 1;
+                                                                                                      $$->children = (st_node **)calloc(sizeof(st_node *), $$->nchild);
+                                                                                                      $$->children[0] = $7;
+                                                                                                    }
                             ;
 
 /* --------------------------- Choice --------------------------- */

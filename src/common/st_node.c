@@ -71,7 +71,7 @@ void st_node_free(st_node *node)
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
       break;
   }
-  
+
   free(node);
 }
 
@@ -89,6 +89,7 @@ st_tree *st_tree_set_name(st_tree *tree, const char *name)
 st_tree *st_tree_add_role(st_tree *tree, const char *role)
 {
   assert(tree != NULL);
+  assert(tree->info != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
     tree->info->roles = (st_role_t **)malloc(sizeof(st_role_t *));
@@ -110,6 +111,7 @@ st_tree *st_tree_add_role(st_tree *tree, const char *role)
 st_tree *st_tree_add_role_param(st_tree *tree, const char *role, st_expr_t *param)
 {
   assert(tree != NULL);
+  assert(tree->info != NULL);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
     tree->info->roles = (st_role_t **)malloc(sizeof(st_role_t *));
