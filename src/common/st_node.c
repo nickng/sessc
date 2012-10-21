@@ -112,6 +112,8 @@ st_tree *st_tree_add_role_param(st_tree *tree, const char *role, st_expr_t *para
 {
   assert(tree != NULL);
   assert(tree->info != NULL);
+  assert(param != NULL);
+  assert(param->type <= 100);
   if (tree->info->nrole == 0) {
     // Allocate for 1 element.
     tree->info->roles = (st_role_t **)malloc(sizeof(st_role_t *));
@@ -323,7 +325,7 @@ void st_node_print(const st_node *node, int indent)
         break;
 
       case ST_NODE_SEND: // ---------- SEND ----------
-        printf("Node { type: send, to: ");
+        printf("Node { type: send");
         printf(", to(%d): ", node->interaction->nto);
         printf("[%s", node->interaction->to[0]->name);
         if (NULL != node->interaction->to[0]->param) {
@@ -463,7 +465,7 @@ int st_node_compare_async(const st_node *node, const st_node *other)
 
   // The actual matching.
   for (i=search_from; i<search_to; ++i) {
-    assert(ST_NODE_SEND == node->children[i]->type || ST_NODE_RECV == node->children[i]->type);
+    //assert(ST_NODE_SEND == node->children[i]->type || ST_NODE_RECV == node->children[i]->type);
 
     if (ST_NODE_RECV == node->children[i]->type) {
       // - Look for matching receive
@@ -744,6 +746,23 @@ inline st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right)
   _->binexpr->left = left;
   _->binexpr->right = right;
   return _;
+}
+
+st_expr_t *st_expr_simplify(st_expr_t *e)
+{
+  st_expr_t *res;
+  assert(e->type > 0);
+  if (ST_EXPR_TYPE_RANGE == e->type) {
+    if (ST_EXPR_TYPE_VAR == e->binexpr->left->type
+        && ST_EXPR_TYPE_VAR == e->binexpr->right->type
+        && 0 == strcmp(e->binexpr->left->variable, e->binexpr->right->variable)) {
+      res = e->binexpr->left;
+      free(e->binexpr->right);
+      free(e->binexpr);
+      return res;
+    }
+  }
+  return e;
 }
 
 void st_expr_eval(st_expr_t *e)

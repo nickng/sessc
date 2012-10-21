@@ -18,7 +18,7 @@ PROFILE := -g -pg
 
 CC      := clang
 MPICC   := mpicc.openmpi
-CFLAGS  := -Wall -I$(INCLUDE_DIR)
+CFLAGS  := -Wall -I$(INCLUDE_DIR) -m64 -fPIC
 LDFLAGS := -L$(LIB_DIR) -L/usr/include/mpi -lsc-mpi -lmpi -lm
 
 # TARGET := debug

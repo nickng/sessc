@@ -87,6 +87,7 @@ struct session_t
   role *(*idx)(struct session_t *s, int offset); // Index offset
   role *(*coord)(struct session_t *s, int *offset_vec); // Vector offset
   role *(*param)(struct session_t *s, char *param_name); // Parametrised groups
+  role *(*parami)(struct session_t *s, char *param_name, int index); // Parametrised groups index addressing
 };
 
 typedef struct session_t session;

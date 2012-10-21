@@ -341,6 +341,7 @@ st_expr_t *st_expr_variable(char *var);
 st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right);
 
 
+st_expr_t *st_expr_simplify(st_expr_t *e);
 
 #ifdef __cplusplus
 }

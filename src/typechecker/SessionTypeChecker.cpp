@@ -10,6 +10,7 @@
 #include <stack>
 #include <map>
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/DeclVisitor.h"
 #include "clang/AST/StmtVisitor.h"
@@ -128,70 +129,133 @@ namespace {
 
       /* Auxiliary functions------------------------------------------------- */
 
-      std::string get_rolename(Expr *expr) {
-        std::string rolename("");
+      st_role_t *get_rolename(Expr *expr) {
+        st_role_t *role = (st_role_t *)malloc(sizeof(st_role_t));
+        role->name = NULL;
+        role->param = NULL;
+
+        int invalidRoleAccess_diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Invalid role access function");
 
         if (isa<ImplicitCastExpr>(expr)) { // role*
           ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(expr);
           if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
             if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
               // Map variable name to role name
-              rolename = varname2rolename.at(VD->getNameAsString());
+              role->name = strdup(varname2rolename.at(VD->getNameAsString()).c_str());
             }
           }
 
-        } else if (isa<CallExpr>(expr)) { // session->role(s, ?);
-          CallExpr *CE = cast<CallExpr>(expr);
+        } else if (CallExpr *CE = dyn_cast<CallExpr>(expr)) {
 
           if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getCallee())) {
+            if (MemberExpr *ME = dyn_cast<MemberExpr>(ICE->getSubExpr())) {
+              std::string role_access_fname = ME->getMemberNameInfo().getAsString();
 
-            // Is this s->r(s, rolename)
-            if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") == 0) {
+              if (0 == role_access_fname.compare("role")) { // P2P role
 
-              // Now extract the second argument of ->role(s, r)
-              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
-                if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
-                  rolename = SL->getString();
-                } else {
-                  int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Invalid use of r(), expecting string literal");
-                  context_->getDiagnostics().Report(diagId) << SL->getSourceRange();
-                  rolename = std::string("__(variable)");
+                if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                  if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
+                    role->name = (char *)calloc(SL->getString().size()+1, sizeof(char));
+                    strncpy(role->name, SL->getString().data(), SL->getString().size());
+                  } else {
+                    context_->getDiagnostics().Report(invalidRoleAccess_diagId) << SL->getSourceRange();
+                    role->name = strdup("__(variable)");
+                  }
                 }
+
+              } else if (0 == role_access_fname.compare("rolei")) { // P2P role
+
+                if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                  if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
+                    role->name = (char *)calloc(SL->getString().size()+1, sizeof(char));
+                    strncpy(role->name, SL->getString().data(), SL->getString().size());
+                  } else {
+                    context_->getDiagnostics().Report(invalidRoleAccess_diagId) << SL->getSourceRange();
+                    role->name = strdup("__(variable)");
+                  }
+                }
+
+                if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
+                  role->name = strdup("__ROLE__");
+                  role->name = (char *)realloc(role->name, strlen(role->name)+2+ IL->getValue().toString(10, 1).length());
+                  sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
+                }
+
+              } else if (0 == role_access_fname.compare("idx")) {
+
+                role->name = strdup("__ROLE__");
+                role->param = parseExpr(CE->getArg(1));
+
+              } else if (0 == role_access_fname.compare("coord")) {
+
+                role->name = strdup("__ROLE__");
+                role->param = parseExpr(CE->getArg(1));
+
+              } else if (0 == role_access_fname.compare("param")) {
+
+                if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                  if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
+                    role->name = (char *)calloc(SL->getString().size()+1, sizeof(char));
+                    strncpy(role->name, SL->getString().data(), SL->getString().size());
+                  } else {
+                    context_->getDiagnostics().Report(invalidRoleAccess_diagId) << SL->getSourceRange();
+                    role->name = strdup("__(variable)");
+                  }
+                }
+
+              } else if (0 == role_access_fname.compare("parami")) {
+
+                if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
+                  if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
+                    role->name = (char *)calloc(SL->getString().size()+1, sizeof(char));
+                    strncpy(role->name, SL->getString().data(), SL->getString().size());
+                  } else {
+                    context_->getDiagnostics().Report(invalidRoleAccess_diagId) << SL->getSourceRange();
+                    role->name = strdup("__(variable)");
+                  }
+                }
+
+                if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
+                  role->name = strdup("__ROLE__");
+                  role->name = (char *)realloc(role->name, strlen(role->name)+2+ IL->getValue().toString(10, 1).length());
+                  sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
+                } else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(2))) {
+                  if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+                    role->name = strdup(DRE->getDecl()->getNameAsString().c_str());
+                  }
+                }
+
+              } else {
+                context_->getDiagnostics().Report(invalidRoleAccess_diagId) << ICE->getSourceRange();
               }
 
-            // Is this s->i(s, index)
-            } else if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, int)") == 0) {
-
-              // Extract second argument of ->role(s, r)
-              st_expr_print(parseExpr(CE->getArg(1)));
-              rolename = std::string(scribble_tree_->info->myrole);
-
+            } else {
+              context_->getDiagnostics().Report(invalidRoleAccess_diagId) << ICE->getSourceRange();
             }
-
           }
 
         } else { // Not role* nor session->r(session, rolename)
 
-          llvm::errs() << "Warning: unable to extract rolename (supported methods: role * declaration or s->r(s, name))\n";
-          rolename = std::string("__(anonymous)");
+          context_->getDiagnostics().Report(context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Unable to extract role name: supported methods role * declaration or s->accessfunction(s, ...)")) << expr->getExprLoc();
+          role->name = strdup("__(anonymous)");
 
         }
 
         //
         // Based on the extract rolename we infer the roles list of the session tree
         //
-        if (rolename[0] == '_')
-          return rolename;
+        if (role->name != NULL && role->name[0] == '_')
+          return role;
         for (int role_idx=0; role_idx<tree_->info->nrole; ++role_idx) {
-          if (strcmp(tree_->info->roles[role_idx]->name, rolename.c_str()) == 0) {
-            return rolename; // Role already registered in st_tree. Return early.
+          if (strcmp(tree_->info->roles[role_idx]->name, role->name) == 0) {
+            return role; // Role already registered in st_tree. Return early.
           }
         }
 
-        st_tree_add_role(tree_, rolename.c_str());
-        return rolename;
-
+        st_tree_add_role(tree_, role->name);
+        return role;
       }
+
 
       st_expr_t *parseExpr(Expr *E) {
 
@@ -269,8 +333,9 @@ namespace {
         //
         // Multiple possibilities
         //
-        // 1. Plain ariable (DeclRefExpr) (int *)i
+        // 1. Plain variable (DeclRefExpr) (int *)i
         // 2. Struct member (MemberExpr,ImplicitCastExpr,DeclRefExpr) (int)->member((session *)s)
+        // 3. Coordinate int-pointer ((int *){1, 2})
         //
         if (isa<ImplicitCastExpr>(E)) {
           ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(E);
@@ -285,6 +350,22 @@ namespace {
               return st_expr_variable(strdup("__INDEX__"));
             }
           }
+
+          if (CompoundLiteralExpr *CLE = dyn_cast<CompoundLiteralExpr>(ICE->getSubExpr())) {
+            if (InitListExpr *ILE = dyn_cast<InitListExpr>(CLE->getInitializer())) {
+              st_expr_t *tmp_expr;
+              unsigned param_dim = ILE->getNumInits();
+              for (unsigned param=0; param<param_dim; ++param) {
+                if (param==0) {
+                  tmp_expr = parseExpr(ILE->getInit(param));
+                } else {
+                  tmp_expr = st_expr_binexpr(tmp_expr, ST_EXPR_TYPE_TUPLE, parseExpr(ILE->getInit(param)));
+                }
+              }
+              return tmp_expr;
+            }
+          }
+
         }
 
         llvm::outs() << "Cannot convert [start]\n";
@@ -364,7 +445,9 @@ namespace {
             && D->getType().getAsString() == "role *") {
 
           if (D->hasInit()) {
-            varname2rolename[D->getNameAsString()] = get_rolename(D->getInit());
+            st_role_t *role = get_rolename(D->getInit());
+            varname2rolename[D->getNameAsString()] = strdup(role->name);
+            free(role);
           } else {
             llvm::errs()
               << "Warn: role* declaration not allowed without initialiser!"
@@ -411,8 +494,8 @@ namespace {
             Stmt *func_call_stmt = NULL;
             std::string func_name(callExpr->getDirectCallee()->getNameAsString());
             std::string datatype;
-            std::string role;
             std::string label;
+            st_role_t *role;
 
             for (Stmt::child_iterator
                 iter = stmt->child_begin(), iter_end = stmt->child_end();
@@ -487,16 +570,19 @@ namespace {
               datatype = func_name.substr(func_name.find("_") + 1, std::string::npos);
 
               // Extract the role (second argument).
-              role = get_rolename(callExpr->getArg(1));
-              Expr *labelExpr = callExpr->getArg(2);
+              role = get_rolename(callExpr->getArg(2));
+              Expr *labelExpr = callExpr->getArg(3);
               if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(labelExpr)) {
                 if (isa<ParenExpr>(ICE->getSubExpr())) {
                   // NULL
                   if (ParenExpr *PE = dyn_cast<ParenExpr>(ICE->getSubExpr())) {
                     if (CStyleCastExpr *CCE = dyn_cast<CStyleCastExpr>(PE->getSubExpr())) {
                       if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CCE->getSubExpr())) {
+                        llvm::outs() << "The label value is " << IL->getValue() << "\n";
                         if (IL->getValue() == 0) {
                           label = "";
+                        } else {
+                          label = IL->getValue().toString(10, 1);
                         }
                       }
                     }
@@ -506,6 +592,8 @@ namespace {
                    if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(ICE->getSubExpr())) {
                      if (IL->getValue() == 0) {
                        label = "";
+                     } else {
+                       label = IL->getValue().toString(10, 1);
                      }
                    }
                 } else if (isa<ImplicitCastExpr>(ICE->getSubExpr())) {
@@ -524,7 +612,14 @@ namespace {
 
               node->interaction->to = (st_role_t **)calloc(sizeof(st_role_t *), node->interaction->nto);
               node->interaction->to[0] = (st_role_t *)malloc(sizeof(st_role_t));
-              node->interaction->to[0]->name = strdup(role.c_str());
+              node->interaction->to[0]->name = strdup(role->name);
+              if (role->param != NULL) {
+                node->interaction->to[0]->param = (st_expr_t *)malloc(sizeof(st_expr_t));
+                memcpy(node->interaction->to[0]->param, role->param, sizeof(st_expr_t)); // XXX Not a deep copy! Just for free(role)!
+              } else {
+                node->interaction->to[0]->param = NULL;
+              }
+              free(role);
               if (label.compare("") == 0) {
                 node->interaction->msgsig.op = NULL;
               } else {
@@ -559,11 +654,18 @@ namespace {
                                           std::string::npos);
 
               // Extract the role (second argument).
-              role = get_rolename(callExpr->getArg(1));
+              role = get_rolename(callExpr->getArg(2));
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
               node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
-              node->interaction->from->name = strdup(role.c_str());
+              node->interaction->from->name = strdup(role->name);
+              if (role->param != NULL) {
+                node->interaction->from->param = (st_expr_t *)malloc(sizeof(st_expr_t));
+                memcpy(node->interaction->from->param, role->param, sizeof(st_expr_t)); // XXX Not a deep copy! Just for free(role)!
+              } else {
+                node->interaction->from->param = NULL;
+              }
+              free(role);
               node->interaction->nto = 0;
               node->interaction->to = NULL;
               node->interaction->msgsig.op = NULL;
@@ -598,14 +700,19 @@ namespace {
               if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(expr)) {
                 if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
                   if (VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
-                    role = VD->getNameAsString();
+                    role = (st_role_t *)malloc(sizeof(st_role_t));
+                    role->name = (char *)calloc(VD->getNameAsString().size()+1, sizeof(char));
+                    strncpy(role->name, VD->getNameAsString().data(), VD->getNameAsString().size()+1);
                   }
                 }
               }
 
               st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
               node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
-              node->interaction->from->name = strdup(role.c_str());
+              node->interaction->from->name = strdup(role->name);
+              assert(role->param == NULL);
+              node->interaction->from->param = NULL;
+              free(role);
               node->interaction->nto = 0;
               node->interaction->to = NULL;
               node->interaction->msgsig.op = NULL;
@@ -686,7 +793,7 @@ namespace {
           st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
           node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
           strcpy(node_end->cont->label, loopLabel.c_str());
-          st_node_append(previous_node, node_end);
+          st_node_append(node, node_end);
 
           appendto_node.pop();
 
@@ -714,7 +821,7 @@ namespace {
           st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
           node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
           strcpy(node_end->cont->label, loopLabel.c_str());
-          st_node_append(previous_node, node_end);
+          st_node_append(node, node_end);
 
           appendto_node.pop();
 
@@ -788,18 +895,62 @@ namespace {
 
             }
 
-          } else { // condition is not a BinaryOperator
+          } else if (isa<CallExpr>(ifStmt->getCond())) {
+            CallExpr *CE = dyn_cast<CallExpr>(ifStmt->getCond());
 
-            if (isa<CallExpr>(ifStmt->getCond())) {
+            if (0 == CE->getDirectCallee()->getNameAsString().compare("sc_range")) {
 
-              CallExpr *CE = cast<CallExpr>(ifStmt->getCond());
+              //
+              // sc_range(int *from, int *to)
+              //
+              Expr *from = CE->getArg(1);
+              Expr *to = CE->getArg(2);
+              int invalidRangeParam_diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Error, "Cannot convert sc_range parameters to role range");
+              unsigned param_dim = 0;
+              st_expr_t *from_expr;
+              st_expr_t *to_expr;
 
-              // We want to match sc_index_match(...) only
-              if (CE->getDirectCallee()->getNameAsString().compare("sc_index_match") == 0) {
-                role_cond = st_expr_binexpr(parseExpr(CE->getArg(1)), ST_EXPR_TYPE_RANGE, parseExpr(CE->getArg(2)));
+              // Here we construct a __ROLE__[ from .. to ] as our role_cond
+              // 1. Work out the role dimension eg. from=(1,1) .. to=(N,N)
+              // 2. Convert to __ROLE___[1..N][1..N] = ((1 RANGE N) TUPLE (1 RANGE N))
+              // 3. Optimisations, eg. [1..N][N..N] -> [1..N][N]
+              //
+
+              // from part
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(from)) {
+                if (CompoundLiteralExpr *CLE = dyn_cast<CompoundLiteralExpr>(ICE->getSubExpr()))
+                  if (InitListExpr *ILE = dyn_cast<InitListExpr>(CLE->getInitializer()))
+                    param_dim = ILE->getNumInits();
+                from_expr = parseExpr(from);
+              } else {
+                context_->getDiagnostics().Report(invalidRangeParam_diagId) << from->getExprLoc();
               }
-            }
 
+              // to part
+              if (isa<ImplicitCastExpr>(to)) {
+                to_expr = parseExpr(to);
+              } else {
+                context_->getDiagnostics().Report(invalidRangeParam_diagId) << to->getExprLoc();
+              }
+
+              for (unsigned param=0; param<param_dim; ++param) {
+                if (from_expr->type == ST_EXPR_TYPE_TUPLE) {
+                  if (param == 0) {
+                    role_cond = st_expr_binexpr(from_expr->binexpr->right, ST_EXPR_TYPE_RANGE, to_expr->binexpr->right);
+                  } else {
+                    role_cond = st_expr_binexpr(st_expr_binexpr(from_expr->binexpr->left, ST_EXPR_TYPE_RANGE, to_expr->binexpr->left), ST_EXPR_TYPE_TUPLE, role_cond);
+                    free(from_expr);
+                  }
+                } else {
+                  role_cond = st_expr_binexpr(from_expr, ST_EXPR_TYPE_RANGE, to_expr);
+                }
+              }
+
+              role_cond = st_expr_simplify(role_cond);
+
+            }
+          } else { // Not BinaryOperation  Not CallExpr
+            // Do nothing
           }
 
           //
@@ -841,6 +992,7 @@ namespace {
                   st_node *label_node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
                   label_node->interaction->from = (st_role_t *)malloc(sizeof(st_role_t));
                   label_node->interaction->from->name = strdup(role.c_str());
+                  label_node->interaction->from->param = NULL;
                   label_node->interaction->nto = 0;
                   label_node->interaction->to = NULL;
                   label_node->interaction->msgsig.op = (char *)calloc(sizeof(char), op.size()+1);
@@ -879,6 +1031,25 @@ namespace {
           }
 
           appendto_node.pop();
+
+          // This code handles sc_range and removing extra if-then
+          if (CallExpr *CE = dyn_cast<CallExpr>(ifStmt->getCond())) {
+            if (CE->getDirectCallee()->getNameAsString().compare("sc_range") == 0) {
+              if (node->nchild != 1) {
+                int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, "Cannot use sc_range and else statement at the same time, the else-block will be dropped!");
+                context_->getDiagnostics().Report(diagId) << ifStmt->getElse()->getSourceRange();
+              }
+
+              if ((node->children[0]->type == ST_NODE_ROOT && node->children[0]->nchild == 1)
+                  || (node->children[0]->type == ST_NODE_ROOT && node->children[0]->nchild > 1)) {
+                // If this is a sc_range statement, we don't use a choice, instead use a (dummy) root node
+                free(node->choice);
+                node->type = ST_NODE_ROOT;
+                return;
+              }
+            }
+          }
+
 
           node->choice->at = NULL;
           for (int i=0; i<node->nchild; ++i) { // Children of choice = code blocks
