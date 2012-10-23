@@ -217,11 +217,13 @@ namespace {
 
                 if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
                   role->name = strdup("__ROLE__");
-                  role->name = (char *)realloc(role->name, strlen(role->name)+2+ IL->getValue().toString(10, 1).length());
+                  role->name = (char *)realloc(role->name, strlen(role->name)+2+IL->getValue().toString(10, 1).length()+1);
                   sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
                 } else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(2))) {
                   if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
-                    role->name = strdup(DRE->getDecl()->getNameAsString().c_str());
+                    role->name = strdup("__ROLE__");
+                    role->name = (char *)realloc(role->name, strlen(role->name)+2+DRE->getDecl()->getNameAsString().length()+1);
+                    sprintf(role->name, "%s[%s]", role->name, DRE->getDecl()->getNameAsString().c_str());
                   }
                 }
 
@@ -291,6 +293,12 @@ namespace {
               break;
             case BO_EQ:
               return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_EQUAL, parseExpr(BO->getRHS()));
+              break;
+            case BO_LT: // < for range-calculation
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_LT, parseExpr(BO->getRHS()));
+              break;
+            case BO_LE: // <= for range-calculation
+              return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_LE, parseExpr(BO->getRHS()));
               break;
             default:
               llvm::errs() << "Warning: Unknown Opcode " << BO->getOpcode() << ", returning 1 (true)\n";
@@ -776,24 +784,71 @@ namespace {
         if (isa<ForStmt>(stmt) ) {
           ForStmt *forStmt = cast<ForStmt>(stmt);
 
-          st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECUR);
-          std::ostringstream ss;
-          ss << "_L" << recur_counter++;
-          std::string loopLabel = ss.str();
-          node->recur->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
-          strcpy(node->recur->label, loopLabel.c_str());
+          st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+
+          if (BinaryOperator *BO = dyn_cast<BinaryOperator>(forStmt->getInit())) {
+            if (BO->getOpcode() == BO_Assign) {
+              if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(BO->getLHS())) {
+                node->forloop->var = strdup(DRE->getDecl()->getNameAsString().c_str());
+              } else {
+                llvm::errs() << "Cannot retrieve variable from for-loop\n";
+              }
+              //node->forloop->range = (st_expr_t *)malloc(sizeof(st_expr_t));
+              //node->forloop->range = NULL;
+              st_expr_t *rngFrom = parseExpr(BO->getRHS());
+              st_expr_t *toExpr = parseExpr(forStmt->getCond());
+              st_expr_t *rngTo = NULL;
+              if (toExpr->type == ST_EXPR_TYPE_LE) {
+                if (toExpr->binexpr->left->type == ST_EXPR_TYPE_VAR
+                    && 0 == strcmp(node->forloop->var, toExpr->binexpr->left->variable)) {
+                  rngTo = toExpr->binexpr->right;
+                  free(toExpr->binexpr->left);
+                  free(toExpr);
+                }
+              } else if (toExpr->type == ST_EXPR_TYPE_LT) {
+                if (toExpr->binexpr->left->type == ST_EXPR_TYPE_VAR
+                    && 0 == strcmp(node->forloop->var, toExpr->binexpr->left->variable)) {
+                  rngTo = st_expr_binexpr(toExpr->binexpr->right, ST_EXPR_TYPE_MINUS, st_expr_constant(1));
+                  free(toExpr->binexpr->left);
+                  free(toExpr);
+                }
+              }
+              if (NULL == rngTo) {
+                node->forloop->var = NULL; // XXX Hack to trigger conversion to recur loop
+              } else {
+                node->forloop->range = st_expr_binexpr(rngFrom, ST_EXPR_TYPE_RANGE, rngTo);
+              }
+            }
+          }
+
+          if (NULL == node->forloop->var) {
+            if (node->forloop->range != NULL) free(node->forloop->range);
+            free(node->forloop);
+            int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, "Could not extract for-loop conditions, reverting to rec-loop");
+            context_->getDiagnostics().Report(forStmt->getForLoc(), diagId);
+            // Convert node to a RECUR
+            node->type = ST_NODE_RECUR;
+            node->recur = (st_node_recur *)malloc(sizeof(st_node_recur));
+            memset(node->recur, 0, sizeof(st_node_recur));
+            std::ostringstream ss;
+            ss << "_L" << recur_counter++;
+            std::string loopLabel = ss.str();
+            node->recur->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
+            strcpy(node->recur->label, loopLabel.c_str());
+          }
 
           st_node *previous_node = appendto_node.top();
           st_node_append(previous_node, node);
           appendto_node.push(node);
 
+
           BaseStmtVisitor::Visit(forStmt->getBody());
 
           // Implicit continue at end of loop.
-          st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
-          node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
-          strcpy(node_end->cont->label, loopLabel.c_str());
-          st_node_append(node, node_end);
+          //st_node *node_end = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_CONTINUE);
+          //node_end->cont->label = (char *)calloc(sizeof(char), loopLabel.size()+1);
+          //strcpy(node_end->cont->label, loopLabel.c_str());
+          //st_node_append(node, node_end);
 
           appendto_node.pop();
 

@@ -43,6 +43,8 @@ extern "C" {
 #define ST_EXPR_TYPE_TUPLE 11
 #define ST_EXPR_TYPE_EQUAL 12
 #define ST_EXPR_TYPE_BIND 13
+#define ST_EXPR_TYPE_LT 14
+#define ST_EXPR_TYPE_LE 15
 
 
 // To represent mathematical expressions
@@ -113,6 +115,7 @@ typedef struct {
 
 
 typedef struct {
+  char *var;
   st_expr_t *range;
 } st_node_for;
 

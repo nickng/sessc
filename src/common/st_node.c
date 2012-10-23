@@ -67,6 +67,9 @@ void st_node_free(st_node *node)
     case ST_NODE_CONTINUE:
       free(node->recur);
       break;
+    case ST_NODE_FOR:
+      free(node->forloop);
+      break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
       break;
@@ -175,15 +178,19 @@ st_node *st_node_init(st_node *node, int type)
       break;
     case ST_NODE_CHOICE:
       node->choice = (st_node_choice *)malloc(sizeof(st_node_choice));
+      memset(node->choice, 0, sizeof(st_node_choice));
       break;
     case ST_NODE_RECUR:
       node->recur = (st_node_recur *)malloc(sizeof(st_node_recur));
+      memset(node->recur, 0, sizeof(st_node_recur));
       break;
     case ST_NODE_CONTINUE:
       node->cont = (st_node_continue *)malloc(sizeof(st_node_continue));
+      memset(node->cont, 0, sizeof(st_node_continue));
       break;
     case ST_NODE_FOR:
       node->forloop = (st_node_for *)malloc(sizeof(st_node_for));
+      memset(node->forloop, 0, sizeof(st_node_for));
       break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, type);
@@ -396,9 +403,10 @@ void st_node_print(const st_node *node, int indent)
         break;
 
       case ST_NODE_FOR: // ---------- FOR ----------
-        printf("Node { type: forloop, range: ");
-        st_expr_print(node->forloop->range);
-        printf("}\n");
+        printf("Node { type: forloop, var: %s range: ", node->forloop->var);
+        if (node->forloop->range == NULL) { printf("NULL"); }
+        else { st_expr_print(node->forloop->range); }
+        printf("\n");
         break;
 
       default:

@@ -84,6 +84,31 @@ st_node *st_node_singleton_leaf_upmerge(st_node *node)
 
 
 /**
+ * Upmerge single send/recv node under a root node
+ */
+st_node *st_node_singleton_interaction_upmerge(st_node *node)
+{
+  int i;
+  for (i=0; i<node->nchild; ++i) {
+    node->children[i] = st_node_singleton_interaction_upmerge(node->children[i]);
+  }
+
+  if (node->type == ST_NODE_ROOT && node->nchild == 1
+      && node->children[0]->nchild == 0
+      && (node->children[0]->type == ST_NODE_SEND
+          || node->children[0]->type == ST_NODE_RECV)) {
+    st_node *oldchild = node->children[0];
+    node->type = node->children[0]->type;
+    node->nchild = 0;
+    free(node->children);
+    node = st_node_init(node, node->type);
+    memcpy(node->interaction, oldchild->interaction, sizeof(st_node_interaction));
+  }
+  return node;
+}
+
+
+/**
  * Checks if there is still empty leaf.
  */
 int st_node_has_empty_leaf(st_node *node)
@@ -94,7 +119,8 @@ int st_node_has_empty_leaf(st_node *node)
       (node->type == ST_NODE_CHOICE
       || node->type == ST_NODE_PARALLEL
       || node->type == ST_NODE_RECUR
-      || node->type == ST_NODE_ROOT)) {
+      || node->type == ST_NODE_ROOT
+      || node->type == ST_NODE_FOR)) {
     return 1;
   } else {
     for (i=0; i<node->nchild; ++i) {
@@ -107,7 +133,7 @@ int st_node_has_empty_leaf(st_node *node)
 
 /**
  * Remove leaf nodes with no children
- * (choice, par, recur, root)
+ * (choice, par, recur, root, foreach)
  */
 st_node *st_node_empty_leaf_remove(st_node *node)
 {
@@ -120,7 +146,8 @@ st_node *st_node_empty_leaf_remove(st_node *node)
     if (node->children[i]->type == ST_NODE_CHOICE
         || node->children[i]->type == ST_NODE_PARALLEL
         || node->children[i]->type == ST_NODE_RECUR
-        || node->children[i]->type == ST_NODE_ROOT) {
+        || node->children[i]->type == ST_NODE_ROOT
+        || node->children[i]->type == ST_NODE_FOR) {
       if (node->children[i]->nchild == 0) {
         // Free the node.
         st_node_free(node->children[i]);
@@ -175,7 +202,7 @@ st_node *st_node_recur_remove_dup_continue(st_node *node)
 
 
 /**
- * Move childeren of non-toplevel root to level above.
+ * Move children of non-toplevel root to level above.
  */
 st_node *st_node_raise_subroot_children(st_node *node)
 {
@@ -183,7 +210,7 @@ st_node *st_node_raise_subroot_children(st_node *node)
   st_node *subroot;
 
   for (i=0; i<node->nchild; ++i) {
-    if ((node->type == ST_NODE_ROOT || node->type == ST_NODE_RECUR) && node->children[i]->type == ST_NODE_ROOT) {
+    if ((node->type == ST_NODE_ROOT || node->type == ST_NODE_RECUR || node->type == ST_NODE_FOR) && node->children[i]->type == ST_NODE_ROOT) {
       subroot = node->children[i];
       offset = subroot->nchild - 1;
       node->nchild = node->nchild + offset;
@@ -221,6 +248,7 @@ st_node *st_node_canonicalise(st_node *node)
 {
   node = st_node_recur_simplify(node);
   node = st_node_singleton_leaf_upmerge(node);
+  node = st_node_singleton_interaction_upmerge(node);
   while (st_node_has_empty_leaf(node)) {
     node = st_node_empty_leaf_remove(node);
     node = st_node_singleton_leaf_upmerge(node);
