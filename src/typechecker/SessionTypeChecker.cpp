@@ -920,34 +920,15 @@ namespace {
           if (isa<BinaryOperator>(ifStmt->getCond())) {
 
             BinaryOperator *BO = cast<BinaryOperator>(ifStmt->getCond());
-            if (BO->getOpcode() == BO_LAnd
-                && isa<CallExpr>(BO->getLHS()) && isa<CallExpr>(BO->getRHS())) {
 
-              CallExpr *CE_LHS = cast<CallExpr>(BO->getLHS());
-              CallExpr *CE_RHS = cast<CallExpr>(BO->getRHS());
-
-              // We want to match sc_eval_cond(...) && sc_index_match(...)
-              if (0 == CE_LHS->getDirectCallee()->getNameAsString().compare("sc_eval_cond")
-                  && 0 == CE_RHS->getDirectCallee()->getNameAsString().compare("sc_index_match")) {
-
-                if (isa<ImplicitCastExpr>(CE_RHS->getArg(1))) {
-                  ImplicitCastExpr *ICE = cast<ImplicitCastExpr>(CE_RHS->getArg(1));
-                  if (isa<CompoundLiteralExpr>(ICE->getSubExpr())) {
-                    CompoundLiteralExpr *CLE = cast<CompoundLiteralExpr>(ICE->getSubExpr());
-                    if (isa<InitListExpr>(CLE->getInitializer())) {
-                      InitListExpr *ILE = cast<InitListExpr>(CLE->getInitializer());
-                      for (unsigned i=0; i<ILE->getNumInits()/2; ++i) {
-                        bool_cond = parseExpr(CE_LHS->getArg(0));
-                        role_cond = st_expr_binexpr(parseExpr(ILE->getInits()[2*i]), ST_EXPR_TYPE_RANGE, parseExpr(ILE->getInits()[2*i+1]));
-                      }
-                    }
+            if (BO->getOpcode() == BO_EQ) {
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(BO->getLHS())) {
+                if (MemberExpr *ME = dyn_cast<MemberExpr>(ICE->getSubExpr())) {
+                  if (0 == ME->getMemberNameInfo().getAsString().compare("myindex")) {
+                    role_cond = parseExpr(BO->getRHS());
                   }
                 }
-              } else {
-                int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, "Expecting sc_eval_cond() and sc_index_match() for conditional evaluation");
-                context_->getDiagnostics().Report(ifStmt->getCond()->getExprLoc(), diagId) << BO->getSourceRange();
               }
-
             }
 
           } else if (isa<CallExpr>(ifStmt->getCond())) {
@@ -1105,6 +1086,22 @@ namespace {
             }
           }
 
+          if (BinaryOperator *BO = dyn_cast<BinaryOperator>(ifStmt->getCond())) {
+            if (BO->getOpcode() == BO_EQ) {
+              if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(BO->getLHS())) {
+                if (MemberExpr *ME = dyn_cast<MemberExpr>(ICE->getSubExpr())) {
+                  if (0 == ME->getMemberNameInfo().getAsString().compare("myindex")) {
+                    if ((node->children[0]->type == ST_NODE_ROOT && node->children[0]->nchild == 1)
+                        || (node->children[0]->type == ST_NODE_ROOT && node->children[0]->nchild > 1)) {
+                      // If this is a sc_range statement, we don't use a choice, instead use a (dummy) root node
+                      free(node->choice);
+                      node->type = ST_NODE_ROOT;
+                    }
+                  }
+                }
+              }
+            }
+          }
 
           node->choice->at = NULL;
           for (int i=0; i<node->nchild; ++i) { // Children of choice = code blocks
