@@ -339,12 +339,12 @@ local_prot_decls            :   LOCAL PROTOCOL IDENT AT role_name LPAREN role_de
                                                                                                                   tree->info->myrole = strdup($5);
                                                                                                                 }
                             |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE simple_expr RSQUARE LPAREN role_decl_list RPAREN local_prot_body {
-                                                                                                                                                             st_tree_set_name(tree, $3);
+                                                                                                                                                             st_tree_set_name_param(tree, $3, st_expr_binexpr(st_expr_constant($7), ST_EXPR_TYPE_RANGE, $9));
                                                                                                                                                              tree->info->type = ST_TYPE_PARAMETRISED;
                                                                                                                                                              tree->info->myrole = strdup($5);
                                                                                                                                                            }
                             |   LOCAL PROTOCOL IDENT AT role_name LSQUARE DIGITS NUMRANGE simple_expr TUPLE DIGITS NUMRANGE simple_expr RSQUARE LPAREN role_decl_list RPAREN local_prot_body {
-                                                                                                                                                                                                         st_tree_set_name(tree, $3);
+                                                                                                                                                             st_tree_set_name_param(tree, $3, st_expr_binexpr(st_expr_binexpr(st_expr_constant($7), ST_EXPR_TYPE_RANGE, $9), ST_EXPR_TYPE_TUPLE, st_expr_binexpr(st_expr_constant($11), ST_EXPR_TYPE_RANGE, $13)));
                                                                                                                                                                                                          tree->info->type = ST_TYPE_PARAMETRISED;
                                                                                                                                                                                                          tree->info->myrole = strdup($5);
                                                                                                                                                                                                        }
@@ -440,6 +440,7 @@ receive                     :   message_signature FROM role_name role_param mess
 
 l_foreach                   :    FOREACH LPAREN IDENT COLON range_expr RPAREN local_interaction_blk {
                                                                                                       $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
+                                                                                                      $$->forloop->var = strdup($3);
                                                                                                       $$->forloop->range = $5;
 
                                                                                                       $$->nchild = 1;

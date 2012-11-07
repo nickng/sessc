@@ -168,28 +168,44 @@ namespace {
                 if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(1))) {
                   if (StringLiteral *SL = dyn_cast<StringLiteral>(ICE->getSubExpr())) {
                     role->name = (char *)calloc(SL->getString().size()+1, sizeof(char));
-                    strncpy(role->name, SL->getString().data(), SL->getString().size());
                   } else {
                     context_->getDiagnostics().Report(invalidRoleAccess_diagId) << SL->getSourceRange();
                     role->name = strdup("__(variable)");
                   }
                 }
 
+                // If Number
                 if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
                   role->name = strdup("__ROLE__");
-                  role->name = (char *)realloc(role->name, strlen(role->name)+2+ IL->getValue().toString(10, 1).length());
-                  sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
+                  //role->name = (char *)realloc(role->name, strlen(role->name)+2+ IL->getValue().toString(10, 1).length());
+                  //sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
+                  role->param = st_expr_variable(IL->getValue().toString(10, 1).c_str());
+                } else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(2))) { // Variable
+                  if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+                    role->name = strdup("__ROLE__");
+                    //role->name = (char *)realloc(role->name, strlen(role->name)+2+DRE->getDecl()->getNameAsString().length()+1);
+                    //sprintf(role->name, "%s[%s]", role->name, DRE->getDecl()->getNameAsString().c_str());
+                    role->param = st_expr_variable(DRE->getDecl()->getNameAsString().c_str());
+                  }
+                } else {
+                  role->name = strdup("__ROLE__");
+                  role->param = parseExpr(CE->getArg(2));
                 }
 
               } else if (0 == role_access_fname.compare("idx")) {
 
                 role->name = strdup("__ROLE__");
-                role->param = parseExpr(CE->getArg(1));
+                role->param = st_expr_offset_range(st_expr_copy(role_cond_stack.top()), parseExpr(CE->getArg(1)));
 
               } else if (0 == role_access_fname.compare("coord")) {
 
                 role->name = strdup("__ROLE__");
                 role->param = parseExpr(CE->getArg(1));
+                if (role->param->type == ST_EXPR_TYPE_TUPLE && scribble_tree_->info->param->type == ST_EXPR_TYPE_TUPLE) {
+                  role->param = st_expr_offset_range(st_expr_copy(role_cond_stack.top()), role->param);
+                } else {
+                  llvm::outs() << "Using coord() access function but the parameters are not coordinates!\n";
+                }
 
               } else if (0 == role_access_fname.compare("param")) {
 
@@ -215,17 +231,19 @@ namespace {
                   }
                 }
 
-                if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
-                  role->name = strdup("__ROLE__");
-                  role->name = (char *)realloc(role->name, strlen(role->name)+2+IL->getValue().toString(10, 1).length()+1);
-                  sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
-                } else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(2))) {
-                  if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
-                    role->name = strdup("__ROLE__");
-                    role->name = (char *)realloc(role->name, strlen(role->name)+2+DRE->getDecl()->getNameAsString().length()+1);
-                    sprintf(role->name, "%s[%s]", role->name, DRE->getDecl()->getNameAsString().c_str());
-                  }
-                }
+                role->param = parseExpr(CE->getArg(2));
+
+                //if (IntegerLiteral *IL = dyn_cast<IntegerLiteral>(CE->getArg(2))) {
+                  //role->name = strdup("__ROLE__");
+                  //role->name = (char *)realloc(role->name, strlen(role->name)+2+IL->getValue().toString(10, 1).length()+1);
+                  //sprintf(role->name, "%s[%s]", role->name, IL->getValue().toString(10, 1).c_str());
+                //} else if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(CE->getArg(2))) {
+                //  if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(ICE->getSubExpr())) {
+                    //role->name = strdup("__ROLE__");
+                    //role->name = (char *)realloc(role->name, strlen(role->name)+2+DRE->getDecl()->getNameAsString().length()+1);
+                    //sprintf(role->name, "%s[%s]", role->name, DRE->getDecl()->getNameAsString().c_str());
+                //  }
+                //}
 
               } else {
                 context_->getDiagnostics().Report(invalidRoleAccess_diagId) << ICE->getSourceRange();
@@ -301,7 +319,10 @@ namespace {
               return st_expr_binexpr(parseExpr(BO->getLHS()), ST_EXPR_TYPE_LE, parseExpr(BO->getRHS()));
               break;
             default:
-              llvm::errs() << "Warning: Unknown Opcode " << BO->getOpcode() << ", returning 1 (true)\n";
+              std::stringstream ss;
+              ss << "Unknown Opcode " << BO->getOpcode() << " (" << BO->getOpcodeStr().data() << "), returning 1 (true)";
+              int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, ss.str());
+              context_->getDiagnostics().Report(diagId) << E->getExprLoc();
               return st_expr_constant(1);
           }
         }
@@ -315,8 +336,14 @@ namespace {
             case UO_Minus:
               return st_expr_binexpr(st_expr_constant(0), ST_EXPR_TYPE_MINUS, parseExpr(UO->getSubExpr()));
               break;
+            case UO_Plus:
+              return parseExpr(UO->getSubExpr());
+              break;
             default:
-              llvm::errs() << "Warning: Unknown Opcode " << UO->getOpcode() << ", returning 1 (true)\n";
+              std::stringstream ss;
+              ss << "Unknown Opcode " << UO->getOpcode() << " (" << UO->getOpcodeStr(UO->getOpcode()).data() << "), returning 1 (true)";
+              int diagId = context_->getDiagnostics().getCustomDiagID(DiagnosticsEngine::Warning, ss.str());
+              context_->getDiagnostics().Report(diagId) << E->getExprLoc();
               return st_expr_constant(1);
           }
         }
@@ -740,8 +767,9 @@ namespace {
             // With the exception of role-extraction function, ignore all non-direct function calls.
             //
             if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(callExpr->getCallee())) {
-              if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") != 0
-                  && ICE->getType().getAsString().compare("role *(*)(struct session_t *, int)") != 0) {
+              //if (ICE->getType().getAsString().compare("role *(*)(struct session_t *, char *)") != 0
+              //    && ICE->getType().getAsString().compare("role *(*)(struct session_t *, int)") != 0) {
+              if (ICE->getType().getAsString().compare(0, 9, "role *(*)") != 0) {
                 llvm::errs() << "Warn: Skipping over a non-direct function call\n";
                 callExpr->dump();
               }
@@ -971,18 +999,21 @@ namespace {
 
               for (unsigned param=0; param<param_dim; ++param) {
                 if (from_expr->type == ST_EXPR_TYPE_TUPLE) {
-                  if (param == 0) {
+                  if (param == 0) { // first param
                     role_cond = st_expr_binexpr(from_expr->binexpr->right, ST_EXPR_TYPE_RANGE, to_expr->binexpr->right);
+                    st_expr_eval(role_cond);
                   } else {
-                    role_cond = st_expr_binexpr(st_expr_binexpr(from_expr->binexpr->left, ST_EXPR_TYPE_RANGE, to_expr->binexpr->left), ST_EXPR_TYPE_TUPLE, role_cond);
+                    st_expr_t *tmp = st_expr_binexpr(from_expr->binexpr->left, ST_EXPR_TYPE_RANGE, to_expr->binexpr->left);
+                    st_expr_eval(tmp);
+                    role_cond = st_expr_binexpr(tmp, ST_EXPR_TYPE_TUPLE, role_cond);
+                    st_expr_eval(role_cond);
                     free(from_expr);
                   }
                 } else {
                   role_cond = st_expr_binexpr(from_expr, ST_EXPR_TYPE_RANGE, to_expr);
+                  st_expr_eval(role_cond);
                 }
               }
-
-              role_cond = st_expr_simplify(role_cond);
 
             }
           } else { // Not BinaryOperation  Not CallExpr

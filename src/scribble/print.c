@@ -253,7 +253,7 @@ void scribble_fprint_expr(FILE *stream, st_expr_t *expr)
 
 void scribble_fprint_message(FILE *stream, st_node *node, int indent)
 {
-  int i, j;
+  int i;
   assert(node != NULL && node->type == ST_NODE_SENDRECV);
   for (i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
@@ -294,7 +294,7 @@ void scribble_fprint_message(FILE *stream, st_node *node, int indent)
 
 void scribble_fprint_send(FILE *stream, st_node *node, int indent)
 {
-  int i, j;
+  int i;
   assert(node != NULL && node->type == ST_NODE_SEND);
   for (i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
@@ -329,7 +329,7 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
 
 void scribble_fprint_recv(FILE *stream, st_node *node, int indent)
 {
-  int i, j;
+  int i;
   assert(node != NULL && node->type == ST_NODE_RECV);
   for (i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 

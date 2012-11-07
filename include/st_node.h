@@ -142,6 +142,7 @@ struct __st_node {
  */
 typedef struct {
   char *name;
+  st_expr_t *param;
   int nrole;
   st_role_t **roles;
 
@@ -201,6 +202,16 @@ void st_node_free(st_node *node);
  * @param[in]     name Name of protocol.
  */
 st_tree *st_tree_set_name(st_tree *tree, const char *name);
+
+
+/**
+ * \brief Set name of protocol (with role parameters).
+ *
+ * @param[in,out] tree Session type tree of protocol.
+ * @param[in]     name Name of protocol.
+ * @param[in]     param Role parameter of protocol.
+ */
+st_tree *st_tree_set_name_param(st_tree *tree, const char *name, st_expr_t *param);
 
 
 /**
@@ -335,16 +346,78 @@ int st_node_compare_msgsig(const st_node_msgsig_t msgsig, const st_node_msgsig_t
 int st_node_compare(st_node *node, st_node *other);
 
 
+/**
+ * \brief Helper constructor for 'constant' expression.
+ *
+ * @param[in] val Integer value.
+ *
+ * \returns expression with constant value (dynamically allocated).
+ */
 st_expr_t *st_expr_constant(int val);
 
 
-st_expr_t *st_expr_variable(char *var);
+/**
+ * \brief Helper constructor for 'variable' expression.
+ *
+ * @param[in] var Variable name.
+ *
+ * \returns expression with variable (dynamically allocated).
+ */
+st_expr_t *st_expr_variable(const char *var);
 
 
+/**
+ * \brief Helper constructor for binary expression.
+ *
+ * @param[in] left  LHS expression tree.
+ * @param[in] type  Expression type as defined in st_node.h (ST_EXPR_TYPE_*)
+ * @param[in] right RHS expression tree.
+ *
+ * \returns expression with binary expression (dynamically allocated).
+ */
 st_expr_t *st_expr_binexpr(st_expr_t *left, int type, st_expr_t *right);
 
 
+/**
+ * \brief Helper function to simplofy a range expression
+ *        in the form of X..X to X.
+ *
+ * If toplevel expression is not range or not in X..X format
+ * original expression will be returned.
+ *
+ * @param[in] e Expression to simplify.
+ *
+ * \returns simplified expression.
+ */
 st_expr_t *st_expr_simplify(st_expr_t *e);
+
+
+/**
+ * \brief Compare two expressions.
+ *
+ * @param[in] e1 Expression to compare.
+ * @param[in] e2 Expression to compare.
+ *
+ * \returns 1 if identical, 0 otherwise.
+ *
+ */
+int st_expr_is_identical(st_expr_t *e1, st_expr_t *e2);
+
+int st_node_compare_interaction(st_node *node, st_node *other);
+
+
+/**
+ * \brief Get a deep copy of st_expr.
+ * 
+ * @param[in] expr st_expr to copy.
+ *
+ * \returns a disjoint copy of expr.
+ */
+st_expr_t *st_expr_copy(const st_expr_t *expr);
+
+void st_expr_eval(st_expr_t *e);
+
+st_expr_t *st_expr_offset_range(st_expr_t *range, st_expr_t* offset);
 
 #ifdef __cplusplus
 }
